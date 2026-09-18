@@ -1,89 +1,82 @@
 <script>
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from './assets/vite.svg'
-  import heroImg from './assets/hero.png'
-  import Counter from './lib/Counter.svelte'
+  import Header from './components/Header.svelte';
+  import MainDisplay from './components/MainDisplay.svelte';
+  import RhythmBar from './components/RhythmBar.svelte';
+  import PlaybackControls from './components/PlaybackControls.svelte';
+  import ChordPanel from './components/ChordPanel.svelte';
+  import PianoKeyboard from './components/PianoKeyboard.svelte';
+  import Drawer from './components/Drawer.svelte';
+
+  // Estados reativos (Svelte 5 Runes)
+  let isMenuOpen = $state(false);
+  let isDarkMode = $state(false);
+  let currentKey = $state('C');
+  let currentBpm = $state(90);
+  let activeChord = $state(null);
+  let isPlaying = $state(false);
+
+  function toggleTheme() {
+    isDarkMode = !isDarkMode;
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }
+
+  function handleKeyChange(newVal) {
+    if (typeof newVal === 'number') {
+      const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+      let idx = keys.indexOf(currentKey);
+      if (idx !== -1) {
+        let nextIdx = (idx + newVal + 12) % 12;
+        currentKey = keys[nextIdx];
+      }
+    } else {
+      currentKey = newVal;
+    }
+  }
+
+  function handleBpmChange(val) {
+    currentBpm = Math.max(30, Math.min(300, currentBpm + val));
+  }
 </script>
 
-<section id="center">
-  <div class="hero">
-    <img src={heroImg} class="base" width="170" height="179" alt="" />
-    <img src={svelteLogo} class="framework" alt="Svelte logo" />
-    <img src={viteLogo} class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/App.svelte</code> and save to test <code>HMR</code></p>
-  </div>
-  <Counter />
-</section>
+<div class="app-container">
+  <!-- Top Bar -->
+  <Header 
+    onOpenMenu={() => (isMenuOpen = true)}
+    selectedKey={currentKey}
+    bpm={currentBpm}
+    onKeyChange={handleKeyChange}
+    onBpmChange={handleBpmChange}
+  />
 
-<div class="ticks"></div>
+  <!-- Visor de Cifras e Partituras -->
+  <MainDisplay />
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#documentation-icon"></use>
-    </svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank" rel="noreferrer">
-          <img class="logo" src={viteLogo} alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://svelte.dev/" target="_blank" rel="noreferrer">
-          <img class="button-icon" src={svelteLogo} alt="" />
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#social-icon"></use>
-    </svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li>
-        <a href="https://github.com/vitejs/vite" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#github-icon"></use>
-          </svg>
-          GitHub
-        </a>
-      </li>
-      <li>
-        <a href="https://chat.vite.dev/" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#discord-icon"></use>
-          </svg>
-          Discord
-        </a>
-      </li>
-      <li>
-        <a href="https://x.com/vite_js" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#x-icon"></use>
-          </svg>
-          X.com
-        </a>
-      </li>
-      <li>
-        <a href="https://bsky.app/profile/vite.dev" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#bluesky-icon"></use>
-          </svg>
-          Bluesky
-        </a>
-      </li>
-    </ul>
-  </div>
-</section>
+  <!-- Barra de Ritmos e Seleção de Instrumento -->
+  <RhythmBar onInstrumentClick={() => alert('Modal de Instrumento')} />
 
-<div class="ticks"></div>
-<section id="spacer"></section>
+  <!-- Controles de Play, Avançar e Fase -->
+  <PlaybackControls 
+    isPlaying={isPlaying} 
+    onTogglePlay={() => (isPlaying = !isPlaying)} 
+  />
+
+  <!-- Grade de Acordes Coloridos -->
+  <ChordPanel 
+    activeChord={activeChord} 
+    onChordClick={(name) => {
+      activeChord = name;
+      setTimeout(() => { if (activeChord === name) activeChord = null; }, 250);
+    }} 
+  />
+
+  <!-- Teclado do Piano Interativo -->
+  <PianoKeyboard onNotePlay={(n) => console.log('Tocar nota:', n)} />
+
+  <!-- Menu Lateral Offcanvas -->
+  <Drawer 
+    isOpen={isMenuOpen} 
+    onClose={() => (isMenuOpen = false)} 
+    isDarkMode={isDarkMode} 
+    onToggleTheme={toggleTheme} 
+  />
+</div>
