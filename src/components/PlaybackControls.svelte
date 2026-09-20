@@ -1,11 +1,16 @@
 <script>
   import { Play, Square, Music, StepBack, StepForward } from 'lucide-svelte';
 
-  let { isPlaying = false, onTogglePlay } = $props();
-  let phase = $state(1);
+  let { 
+    isPlaying = false, 
+    phase = 1, 
+    onTogglePlay, 
+    onPhaseChange 
+  } = $props();
 
   function nextPhase() {
-    phase = (phase % 3) + 1;
+    const next = (phase % 3) + 1;
+    if (onPhaseChange) onPhaseChange(next);
   }
 </script>
 
@@ -15,6 +20,7 @@
   </button>
 
   <button 
+    type="button"
     class="btn-circle btn-play" 
     class:playing={isPlaying} 
     onclick={onTogglePlay} 
@@ -32,10 +38,11 @@
   </button>
 
   <button 
+    type="button"
     class="btn-circle btn-music" 
     class:phase-3={phase === 3} 
     onclick={nextPhase} 
-    title="Fase Harmônica"
+    title="Fase Harmônica (1: Órgão, 2: +Cordas, 3: Cheio)"
     aria-label="Fase Harmônica"
   >
     {#if phase === 1}

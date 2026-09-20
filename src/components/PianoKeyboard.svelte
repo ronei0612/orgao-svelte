@@ -1,5 +1,5 @@
 <script>
-  let { onNotePlay } = $props();
+  let { onNoteDown, onNoteUp } = $props();
 
   const pattern = [
     { note: 'C', type: 'white' },
@@ -17,15 +17,20 @@
   ];
 
   const octaves = [4, 5];
-  let pressedKey = $state(null);
+  let pressedKeys = $state(new Set());
 
-  function handleKeyStart(noteName) {
-    pressedKey = noteName;
-    if (onNotePlay) onNotePlay(noteName);
+  function handleStart(noteName) {
+    pressedKeys.add(noteName);
+    pressedKeys = new Set(pressedKeys); // Força atualização reativa
+    if (onNoteDown) onNoteDown(noteName);
   }
 
-  function handleKeyEnd() {
-    pressedKey = null;
+  function handleEnd(noteName) {
+    if (pressedKeys.has(noteName)) {
+      pressedKeys.delete(noteName);
+      pressedKeys = new Set(pressedKeys);
+      if (onNoteUp) onNoteUp(noteName);
+    }
   }
 </script>
 
@@ -38,10 +43,11 @@
           <button 
             type="button"
             class="key {item.type}" 
-            class:pressed={pressedKey === keyLabel}
-            onpointerdown={() => handleKeyStart(keyLabel)}
-            onpointerup={handleKeyEnd}
-            onpointerleave={handleKeyEnd}
+            class:pressed={pressedKeys.has(keyLabel)}
+            onpointerdown={() => handleStart(keyLabel)}
+            onpointerup={() => handleEnd(keyLabel)}
+            onpointerleave={() => handleEnd(keyLabel)}
+            onpointercancel={() => handleEnd(keyLabel)}
           >
             <span>{keyLabel}</span>
           </button>
@@ -51,10 +57,10 @@
       <button 
         type="button"
         class="key white" 
-        class:pressed={pressedKey === 'C6'}
-        onpointerdown={() => handleKeyStart('C6')}
-        onpointerup={handleKeyEnd}
-        onpointerleave={handleKeyEnd}
+        class:pressed={pressedKeys.has('C6')}
+        onpointerdown={() => handleStart('C6')}
+        onpointerup={() => handleEnd('C6')}
+        onpointerleave={() => handleEnd('C6')}
       >
         <span>C6</span>
       </button>
@@ -75,6 +81,7 @@
     overflow-y: hidden;
     padding: 4px 0;
     scrollbar-width: thin;
+    touch-action: pan-x;
   }
 
   .piano {
@@ -97,6 +104,7 @@
     user-select: none;
     border: none;
     transition: background 0.1s, transform 0.1s;
+    touch-action: none;
   }
 
   .key.white {
@@ -129,7 +137,7 @@
   }
 
   .key.black.pressed {
-    background: #000;
+    background: #000000;
     transform: translateY(2px);
   }
 
