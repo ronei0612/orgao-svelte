@@ -3,7 +3,7 @@
 
   const NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-  // Função pura que calcula o campo harmônico exato do tom selecionado
+  // Calcula os graus e aplica as cores originais exatas da Imagem 1
   function calculateChords(rootKey) {
     if (rootKey === 'L') rootKey = 'C';
     let baseIdx = NOTES.indexOf(rootKey);
@@ -11,34 +11,34 @@
 
     const getNote = (interval) => NOTES[(baseIdx + interval) % 12];
 
-    // Mesmos graus e cores da versão original do app:
+    // Linha Superior: Auxiliares e Relativos (5 botões)
     const aux = [
-      { name: getNote(10), bg: '#788290' },        // bVII
-      { name: getNote(9), bg: '#b095e6' },         // VI
-      { name: `${getNote(11)}°`, bg: '#788290' },  // VII° (Diminuto)
-      { name: getNote(4), bg: '#9c67d6' },         // III Relativo
-      { name: getNote(2), bg: '#788290' }          // II Maior
+      { name: getNote(10), bg: '#788290' },        // bVII (Bb - Cinza)
+      { name: getNote(9), bg: '#b095e6' },         // VI (A - Roxo Claro)
+      { name: `${getNote(11)}°`, bg: '#788290' },  // VII° (B° - Cinza com °)
+      { name: getNote(4), bg: '#9c67d6' },         // III (E - Roxo Médio)
+      { name: getNote(2), bg: '#788290' }          // II (D - Cinza)
     ];
 
+    // Linha Inferior: Diatônicos Principais (6 botões)
     const main = [
-      { name: getNote(0), label: '1º Tônica', bg: '#4c8ade' },
-      { name: `${getNote(9)}m`, label: '6º Grau', bg: '#8056d6' },
-      { name: getNote(5), label: '4º Subdom', bg: '#d16baf' },
-      { name: `${getNote(2)}m`, label: '2º Grau', bg: '#e06c6c' },
-      { name: getNote(7), label: '5º Domin', bg: '#e88d4f' },
-      { name: `${getNote(4)}m`, label: '3º Grau', bg: '#d9aa45' }
+      { name: getNote(0), bg: '#4c8ade' },         // 1º Grau Tônica (C - Azul)
+      { name: `${getNote(9)}m`, bg: '#8056d6' },   // 6º Grau Menor (Am - Violeta)
+      { name: getNote(5), bg: '#d16baf' },         // 4º Grau Subdominante (F - Magenta)
+      { name: `${getNote(2)}m`, bg: '#e06c6c' },   // 2º Grau Menor (Dm - Coral)
+      { name: getNote(7), bg: '#e88d4f' },         // 5º Grau Dominante (G - Laranja)
+      { name: `${getNote(4)}m`, bg: '#d9aa45' }    // 3º Grau Menor (Em - Dourado)
     ];
 
     return { aux, main };
   }
 
-  // Svelte 5 Rune $derived: recalcula automaticamente sempre que selectedKey mudar!
   let currentGrid = $derived(calculateChords(selectedKey));
 </script>
 
 <div class="chord-panel">
-  <!-- Linha Superior: Auxiliares e Relativos -->
-  <div class="chord-row">
+  <!-- Linha Superior: 5 Botões -->
+  <div class="chord-row aux-row">
     {#each currentGrid.aux as chord}
       <button 
         type="button"
@@ -52,8 +52,8 @@
     {/each}
   </div>
 
-  <!-- Linha Inferior: Diatônicos Principais (I, VIm, IV, IIm, V, IIIm) -->
-  <div class="chord-row">
+  <!-- Linha Inferior: 6 Botões -->
+  <div class="chord-row main-row">
     {#each currentGrid.main as chord}
       <button 
         type="button"
@@ -73,39 +73,47 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 4px 0;
+    gap: 12px;
+    padding: 6px 0 12px 0;
   }
 
   .chord-row {
     display: flex;
     justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 12px;
   }
 
+  /* BOTÃO EM REPOUSO (Sem tocar - Idêntico à Imagem 1) */
   .chord-btn {
     width: 52px;
     height: 52px;
     border-radius: 50%;
     border: none;
     background-color: var(--btn-color);
-    color: white;
-    font-size: 15px;
+    color: #ffffff;
+    font-size: 16px;
     font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.18);
-    transition: transform 0.1s, filter 0.2s, box-shadow 0.2s;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+    transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
     user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
   }
 
   .chord-btn:active {
-    transform: scale(0.93);
+    transform: scale(0.92);
   }
 
+  /* BOTÃO TOCANDO / ATIVO (Idêntico às Imagens 2, 3, 4 e 5):
+     - Afunda ligeiramente (scale 0.95)
+     - Escurece a cor interna da tecla (brightness 0.68)
+     - Projeta a aura colorida difusa ao redor */
   .chord-btn.active {
-    filter: brightness(0.75);
-    box-shadow: 0 0 16px 4px var(--btn-color);
+    filter: brightness(0.68);
+    box-shadow: 0 0 24px 8px var(--btn-color);
     transform: scale(0.95);
   }
 </style>

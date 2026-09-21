@@ -1,3 +1,8 @@
+/**
+ * src/audio/rhythmEngine.js
+ * Sequenciador rítmico melódico de 5 vozes com condução harmônica correta (Octave Shift e Pianada).
+ */
+
 import { sampleEngine } from './sampleEngine.js';
 
 class RhythmEngine {
@@ -60,7 +65,6 @@ class RhythmEngine {
     this.currentInstrument = inst;
     await this.audio.preloadStudio(inst);
 
-    // Recarrega o padrão rítmico do novo instrumento
     this.setRhythm(this.currentRhythmName);
 
     if (this.currentChord) {
@@ -82,7 +86,7 @@ class RhythmEngine {
     if (data) {
       this.activeRhythmData = {
         numSteps: data.numSteps || data.steps || 8,
-        // No styles-melody.json: vozes[0] é V5 (topo), vozes[4] é V1 (baixo)
+        // vozes[0] é V5 (topo), vozes[4] é V1 (baixo)
         v5: [...(data.vozes ? data.vozes[0] : (data.v5 || []))],
         v4: [...(data.vozes ? data.vozes[1] : (data.v4 || []))],
         v3: [...(data.vozes ? data.vozes[2] : (data.v3 || []))],
@@ -92,7 +96,6 @@ class RhythmEngine {
     }
   }
 
-  // Condução melódica das 5 vozes com Octave Shift e Pianada
   calculateVoiceFiles(chordStr, phase = 1) {
     const parsed = this.audio.parseChord(chordStr);
     if (!parsed) return {};
@@ -103,7 +106,7 @@ class RhythmEngine {
     const prefix = this.currentInstrument === 'piano' ? 'piano' : 'orgao';
 
     // Helper Matemático com OCTAVE SHIFT:
-    // Garante que terças e quintas cruzem para a oitava superior sem cair para o grave
+    // Faz a nota subir para a oitava seguinte se cruzar o Dó (ex: em Sol maior, Ré vai para 4ª oitava)
     const getNote = (intervalIdx, baseOct) => {
       const abs = rootIdx + intervals[intervalIdx];
       const noteClass = this.audio.chromatic[abs % 12];
@@ -120,22 +123,22 @@ class RhythmEngine {
     files[2] = `${prefix}_${bass}3.ogg`;
 
     if (this.currentInstrument === 'piano') {
-      // === PIANO ===
+      // === COMPORTAMENTO DO PIANO ===
       if (phase === 3) {
         // Modo Cheio: oitava 4 e Pianada cheia na Voz 5
         files[3] = getNote(0, 4);
         files[4] = getNote(1, 4);
         files[5] = [getNote(0, 4), getNote(1, 4), getNote(2, 4)];
       } else {
-        // Modo Normal: inversão e Pianada de apoio
+        // Modo Normal: inversão de apoio
         files[3] = getNote(1, 3);
         files[4] = getNote(2, 3);
         files[5] = [getNote(1, 3), getNote(2, 3), getNote(0, 4)];
       }
     } else {
-      // === ÓRGÃO ===
+      // === COMPORTAMENTO DO ÓRGÃO ===
       if (phase === 3) {
-        // Modo Cheio: notas individuais abertas na 8ª 4
+        // Modo Cheio: oitava 4 completa
         files[3] = getNote(0, 4);
         files[4] = getNote(1, 4);
         files[5] = getNote(2, 4);
@@ -163,7 +166,6 @@ class RhythmEngine {
     this.currentChord = chordStr;
     this.currentVoicesFiles = this.calculateVoiceFiles(chordStr, this.phase);
 
-    // Corta o ritmo do acorde anterior sem clipping
     this.audio.stopRhythmNotes();
 
     this.currentStep = 0;
@@ -186,13 +188,11 @@ class RhythmEngine {
       const beatDuration = 60.0 / this.bpm; // Semínima
       const stepDuration = beatDuration / 2; // Colcheia
 
-      // Piscar visual do metrônomo no tempo
       if (now >= this.nextBlinkTime) {
         this.nextBlinkTime += beatDuration;
         if (this.onMetronomeTick) this.onMetronomeTick();
       }
 
-      // Agendamento das notas da grade
       while (this.nextStepTime < now + lookahead) {
         this.scheduleStep(this.currentStep, this.nextStepTime);
 
@@ -228,7 +228,6 @@ class RhythmEngine {
         const fileOrArray = this.currentVoicesFiles[v];
         if (!fileOrArray) continue;
 
-        // 1 = Forte (1.0), 2 = Fraco / Ghost note (0.5)
         const volume = state === 1 ? 1.0 : 0.5;
         this.audio.playStudioNote(this.currentInstrument, fileOrArray, volume, time);
       }

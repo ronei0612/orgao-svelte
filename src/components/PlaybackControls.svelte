@@ -1,10 +1,9 @@
 <script>
-  import { Play, Square, Music, StepBack, StepForward } from 'lucide-svelte';
-
   let { 
     isPlaying = false, 
     isBlinking = false,
     phase = 1, 
+    showNav = false,
     onTogglePlay, 
     onPhaseChange 
   } = $props();
@@ -16,43 +15,66 @@
 </script>
 
 <div class="playback-panel">
-  <button class="nav-btn" title="Acorde Anterior" aria-label="Acorde Anterior">
-    <StepBack size={24} />
-  </button>
+  {#if showNav}
+    <button type="button" class="nav-btn" title="Acorde Anterior" aria-label="Acorde Anterior">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+      </svg>
+    </button>
+  {/if}
 
+  <!-- Botão Play / Stop Circular -->
   <button 
     type="button"
     class="btn-circle btn-play" 
     class:playing={isPlaying} 
     class:bpm-blink={isBlinking}
     onclick={onTogglePlay} 
-    aria-label="Tocar ou Pausar"
+    aria-label={isPlaying ? "Parar" : "Reproduzir"}
   >
     {#if isPlaying}
-      <Square size={24} />
+      <!-- Ícone Stop: Quadrado Branco Arredondado -->
+      <span class="icon-stop"></span>
     {:else}
-      <Play size={26} style="margin-left: 3px;" />
+      <!-- Ícone Play: Triângulo Branco Centralizado -->
+      <span class="icon-play"></span>
     {/if}
   </button>
 
-  <button class="nav-btn" title="Próximo Acorde" aria-label="Próximo Acorde">
-    <StepForward size={24} />
-  </button>
+  {#if showNav}
+    <button type="button" class="nav-btn" title="Próximo Acorde" aria-label="Próximo Acorde">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+      </svg>
+    </button>
+  {/if}
 
+  <!-- Botão de Fase Harmônica (btn-music) -->
   <button 
     type="button"
     class="btn-circle btn-music" 
-    class:phase-3={phase === 3} 
+    class:phase-3={phase === 3}
     onclick={nextPhase} 
     title="Fase Harmônica (1: Órgão, 2: +Cordas, 3: Cheio)"
     aria-label="Fase Harmônica"
   >
     {#if phase === 1}
-      <Music size={22} />
+      <!-- Fase 1: Nota simples preenchida (estilo bi-music-note) -->
+      <svg class="music-svg" viewBox="0 0 16 16" width="22" height="22" fill="currentColor">
+        <path d="M9 13c0 1.105-1.12 2-2.5 2S4 14.105 4 13s1.12-2 2.5-2 2.5.895 2.5 2z"/>
+        <path fill-rule="evenodd" d="M9 3v10H8V3h1z"/>
+        <path d="M8 2.82a1 1 0 0 1 .804-.98l3-1.2A1 1 0 0 1 13 1.6V4a1 1 0 0 1-.804.98l-3 1.2A1 1 0 0 1 8 5.2V2.82z"/>
+      </svg>
     {:else if phase === 2}
-      <span class="music-icon-2">♫</span>
+      <!-- Fase 2: Notas duplas ligadas (estilo bi-music-note-beamed) -->
+      <svg class="music-svg" viewBox="0 0 16 16" width="24" height="24" fill="currentColor">
+        <path d="M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13s1.12-2 2.5-2 2.5.895 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z"/>
+        <path fill-rule="evenodd" d="M14 11V2h1v9h-1zM6 13V4h1v9H6z"/>
+        <path d="M6 3.5 15 1.5v2L6 5.5v-2z"/>
+      </svg>
     {:else}
-      <span class="music-icon-3">🎶</span>
+      <!-- Fase 3: Som Cheio -->
+      <span class="music-emoji">🎶</span>
     {/if}
   </button>
 </div>
@@ -62,8 +84,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-    padding: 6px 0;
+    gap: 24px;
+    padding: 10px 0;
   }
 
   .nav-btn {
@@ -73,6 +95,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
+    padding: 0;
     transition: color 0.2s;
   }
 
@@ -80,6 +103,7 @@
     color: var(--app-teal);
   }
 
+  /* BOTÕES CIRCULARES PADRÃO (52px x 52px) */
   .btn-circle {
     width: 52px;
     height: 52px;
@@ -90,34 +114,69 @@
     justify-content: center;
     color: white;
     cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.2s;
+    transition: transform 0.15s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+    user-select: none;
+    padding: 0;
   }
 
+  .btn-circle:active {
+    transform: scale(0.93);
+  }
+
+  /* ESTADO PARADO: Azul com brilho ciano suave */
   .btn-play {
-    background-color: #2b7af1;
-    box-shadow: 0 0 16px 3px rgba(33, 190, 232, 0.6);
+    background-color: #2680eb;
+    box-shadow: 0 0 18px 5px rgba(38, 128, 235, 0.45);
   }
 
+  /* ESTADO REPRODUZINDO: Coral/Vermelho com brilho avermelhado */
   .btn-play.playing {
-    background-color: #ff6347;
-    box-shadow: 0 0 16px 3px rgba(230, 57, 70, 0.6);
+    background-color: #ff5733;
+    box-shadow: 0 0 22px 6px rgba(255, 87, 51, 0.55);
   }
 
-  /* PISCAR DO METRÔNOMO NO COMPASSO */
+  /* METRÔNOMO VISUAL */
   .btn-play.bpm-blink {
-    filter: brightness(1.5);
-    transform: scale(1.08);
-    box-shadow: 0 0 24px 6px rgba(255, 255, 255, 0.9);
+    filter: brightness(1.35);
+    transform: scale(1.06);
+    box-shadow: 0 0 26px 8px rgba(255, 255, 255, 0.9);
   }
 
+  /* ÍCONE DE PLAY (Triângulo Branco Perfeito) */
+  .icon-play {
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-left: 17px solid #ffffff;
+    margin-left: 3px;
+    border-radius: 2px;
+  }
+
+  /* ÍCONE DE STOP (Quadrado Branco com Cantos Arredondados) */
+  .icon-stop {
+    width: 17px;
+    height: 17px;
+    background-color: #ffffff;
+    border-radius: 3px;
+  }
+
+  /* BOTÃO DE FASE HARMÔNICA (Teal/Verde-Petróleo Sólido) */
   .btn-music {
-    background-color: var(--app-teal);
+    background-color: #0b8e8e;
+    box-shadow: 0 0 10px 1px rgba(11, 142, 142, 0.3);
   }
 
   .btn-music.phase-3 {
-    box-shadow: 0 0 16px 3px rgba(11, 142, 142, 0.7);
+    box-shadow: 0 0 18px 4px rgba(11, 142, 142, 0.7);
   }
 
-  .music-icon-2 { font-size: 20px; }
-  .music-icon-3 { font-size: 18px; }
+  .music-svg {
+    fill: #ffffff;
+  }
+
+  .music-emoji {
+    font-size: 20px;
+    line-height: 1;
+  }
 </style>

@@ -17,6 +17,7 @@
   let currentKey = $state('C');
   let currentBpm = $state(90);
   let activeChord = $state(null);
+  let currentPlayingChord = $state('C');
   let isPlaying = $state(false);
   let isBlinking = $state(false);
   let musicPhase = $state(1);
@@ -26,14 +27,14 @@
   let selectedRhythm = $state('Sem ritmo');
 
   onMount(async () => {
-    // 1. Pré-carrega o pad contínuo do órgão
+    // 1. Pré-carrega o fundo contínuo (Órgão + Cordas)
     sampleEngine.preloadAll();
 
-    // 2. Inicializa o sequenciador e obtém os ritmos do instrumento padrão
+    // 2. Inicializa o motor de ritmos
     await rhythmEngine.init();
     rhythmsList = rhythmEngine.getRhythmsList();
 
-    // 3. Metrônomo visual no botão Play
+    // 3. Piscar visual do botão Play com o metrônomo
     rhythmEngine.onMetronomeTick = () => {
       isBlinking = true;
       setTimeout(() => { isBlinking = false; }, 100);
@@ -72,8 +73,10 @@
   function handlePhaseChange(nextPhase) {
     musicPhase = nextPhase;
     rhythmEngine.setPhase(musicPhase);
-    if (isPlaying && activeChord) {
-      sampleEngine.playChord(activeChord, musicPhase);
+
+    // Se estiver tocando, atualiza o som ao vivo com o novo timbre/fase
+    if (isPlaying && currentPlayingChord) {
+      sampleEngine.playChord(currentPlayingChord, musicPhase);
     }
   }
 
@@ -87,26 +90,20 @@
     await rhythmEngine.setInstrument(currentInstrument);
     rhythmsList = rhythmEngine.getRhythmsList();
 
-    // Se o ritmo selecionado não existir no novo instrumento, reseta
     if (!rhythmsList.includes(selectedRhythm)) {
       selectedRhythm = 'Sem ritmo';
       rhythmEngine.setRhythm('Sem ritmo');
     }
   }
 
-  // =========================================================================
-  // DISPARO SINCRONIZADO: Fundo Contínuo + Acompanhamento Melódico do Ritmo
-  // =========================================================================
+  // DISPARO SINCRONIZADO: O acorde clicado permanece ativo e com aura luminosa
   function handleChordClick(chordName) {
     activeChord = chordName;
+    currentPlayingChord = chordName;
     isPlaying = true;
 
     sampleEngine.playChord(chordName, musicPhase);
     rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
-
-    setTimeout(() => {
-      if (activeChord === chordName) activeChord = null;
-    }, 300);
   }
 
   function handleTogglePlay() {
@@ -116,7 +113,8 @@
       rhythmEngine.stop();
       activeChord = null;
     } else {
-      const chordToPlay = activeChord || currentKey;
+      const chordToPlay = currentPlayingChord || currentKey;
+      activeChord = chordToPlay;
       sampleEngine.playChord(chordToPlay, musicPhase);
       rhythmEngine.triggerChord(chordToPlay, musicPhase, currentBpm);
     }
@@ -134,7 +132,6 @@
 
   <MainDisplay />
 
-  <!-- Seleção do Ritmo e Instrumento (com suporte a alternar Órgão / Piano) -->
   <RhythmBar 
     rhythms={rhythmsList}
     selectedRhythm={selectedRhythm}
@@ -143,6 +140,7 @@
     onInstrumentClick={handleToggleInstrument} 
   />
 
+  <!-- Play/Stop e Fase Harmônica lado a lado, sem setas indesejadas -->
   <PlaybackControls 
     isPlaying={isPlaying} 
     isBlinking={isBlinking}
@@ -151,6 +149,7 @@
     onPhaseChange={handlePhaseChange}
   />
 
+  <!-- Painel de Acordes com as duas linhas e a aura luminosa persistente -->
   <ChordPanel 
     selectedKey={currentKey}
     activeChord={activeChord} 

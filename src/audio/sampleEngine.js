@@ -1,3 +1,8 @@
+/**
+ * src/audio/sampleEngine.js
+ * Gerenciador da Web Audio API, carregamento de buffers (Órgão, Strings e Studio) e reprodução.
+ */
+
 class SampleEngine {
   constructor() {
     this.ctx = null;
@@ -85,7 +90,7 @@ class SampleEngine {
 
       const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('text/html')) {
-        throw new Error('Arquivo não encontrado no public (retornou HTML)');
+        throw new Error('Arquivo de áudio não encontrado (o servidor retornou página HTML)');
       }
 
       const arrayBuffer = await res.arrayBuffer();
@@ -98,7 +103,7 @@ class SampleEngine {
     }
   }
 
-  // Pré-carrega as 36 amostras do fundo contínuo (Orgao/ oitavas 2 a 4)
+  // Pré-carrega as amostras contínuas de Órgão E Strings (oitavas 2 a 4)
   async preloadAll() {
     if (this.isPreloaded) return;
     this.init();
@@ -107,13 +112,15 @@ class SampleEngine {
     for (const note of this.fileNotes) {
       for (const oct of [2, 3, 4]) {
         urls.push(`${this.baseUrl}Orgao/orgao_${note}${oct}.ogg`);
+        urls.push(`${this.baseUrl}Strings/strings_${note}${oct}.ogg`);
       }
     }
     await Promise.allSettled(urls.map((u) => this.loadBuffer(u)));
     this.isPreloaded = true;
+    console.log('[Áudio] ✅ Órgão e Strings (fundo contínuo) carregados!');
   }
 
-  // Pré-carrega as amostras de estúdio para os ritmos (oitavas 2 a 5)
+  // Pré-carrega as amostras de estúdio para a melodia rítmica (oitavas 2 a 5)
   async preloadStudio(instrument = 'orgao') {
     if (this.preloadedStudio[instrument]) return;
     this.init();
@@ -131,10 +138,10 @@ class SampleEngine {
 
     await Promise.allSettled(urls.map((u) => this.loadBuffer(u)));
     this.preloadedStudio[instrument] = true;
-    console.log(`[Studio] ✅ Amostras de ${instrument.toUpperCase()} carregadas!`);
+    console.log(`[Studio] ✅ Amostras de estúdio de ${instrument.toUpperCase()} carregadas!`);
   }
 
-  // Toca uma ou mais notas da melodia do ritmo (Vozes 1 a 5)
+  // Toca uma nota ou conjunto de notas (Pianada) no ritmo
   async playStudioNote(instrument, fileOrArray, volume = 1.0, time = 0) {
     this.init();
     if (!fileOrArray) return;
@@ -168,7 +175,7 @@ class SampleEngine {
     }
   }
 
-  // Corta as notas do ritmo com release suave ao mudar de acorde ou parar
+  // Corta as notas de ritmo ativas ao mudar de acorde
   stopRhythmNotes() {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
@@ -185,7 +192,7 @@ class SampleEngine {
     this.activeRhythmNodes = [];
   }
 
-  // --- ACORDE DE FUNDO CONTÍNUO (PAD) ---
+  // --- ACORDE CONTÍNUO (PAD) COM SUPORTE ÀS FASES 1, 2 E 3 ---
   buildChordFiles(chordStr, phase = 1) {
     const parsed = this.parseChord(chordStr);
     if (!parsed) return [];
@@ -194,22 +201,47 @@ class SampleEngine {
     const intervals = this.getIntervals(parsed.suffix);
     const playlist = [];
 
+    const bassFile = this.normalizeNoteForFile(parsed.bass);
+
+    // 1. Baixo Fundamental (Oitava 2)
     playlist.push({
-      url: `${this.baseUrl}Orgao/${this.getFileName(parsed.bass, 2)}`,
+      url: `${this.baseUrl}Orgao/orgao_${bassFile}2.ogg`,
       volume: 1.0
     });
 
+    if (phase >= 2) {
+      playlist.push({
+        url: `${this.baseUrl}Strings/strings_${bassFile}2.ogg`,
+        volume: 0.65
+      });
+    }
+
+    // 2. Tríade (Oitava 3)
     intervals.forEach((interval) => {
       const noteClass = this.chromatic[(rootIdx + interval) % 12];
+      const noteFile = this.normalizeNoteForFile(noteClass);
+
       playlist.push({
-        url: `${this.baseUrl}Orgao/${this.getFileName(noteClass, 3)}`,
+        url: `${this.baseUrl}Orgao/orgao_${noteFile}3.ogg`,
         volume: 0.85
       });
 
+      if (phase >= 2) {
+        playlist.push({
+          url: `${this.baseUrl}Strings/strings_${noteFile}3.ogg`,
+          volume: 0.60
+        });
+      }
+
+      // 3. Fase 3 (Som Cheio): adiciona Oitava 4 no Órgão e nas Cordas
       if (phase === 3) {
         playlist.push({
-          url: `${this.baseUrl}Orgao/${this.getFileName(noteClass, 4)}`,
+          url: `${this.baseUrl}Orgao/orgao_${noteFile}4.ogg`,
           volume: 0.65
+        });
+        playlist.push({
+          url: `${this.baseUrl}Strings/strings_${noteFile}4.ogg`,
+          volume: 0.50
         });
       }
     });
