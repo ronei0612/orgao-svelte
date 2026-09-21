@@ -19,18 +19,18 @@
     background-color: var(--app-bg-display);
     border: 1px solid var(--app-border-display);
     border-radius: 6px;
-    padding: 15px;
+    padding: 8px 12px;
     overflow-y: auto;
     font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 15px;
+    font-size: 14px;
     white-space: pre-wrap;
-    min-height: 120px;
+    min-height: 90px;
     position: relative;
   }
 
   .display-container.lyrics-only {
     font-family: 'Roboto', sans-serif;
-    font-size: 17px;
+    font-size: 16px;
   }
 
   .empty-state {
@@ -46,6 +46,6 @@
   .empty-state p {
     margin: 0;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 15px;
   }
 </style>

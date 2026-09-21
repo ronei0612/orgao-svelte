@@ -1,50 +1,99 @@
 <script>
-  import { Menu, Minus, Plus, Search, FilePlus, Edit, Trash2, Save, X } from 'lucide-svelte';
+  import { Menu, Minus, Plus, FilePlus, Edit, Trash2, Save, X, ChevronDown } from 'lucide-svelte';
 
   let { 
     onOpenMenu, 
     selectedKey = 'C', 
     bpm = 90, 
     isEditing = false,
+    songs = [],
+    selectedSongId = '',
     onKeyChange, 
-    onBpmChange 
+    onBpmChange,
+    onSongChange,
+    onAddSong,
+    onEditSong,
+    onDeleteSong,
+    onSaveSong,
+    onCancelEdit
   } = $props();
 
   const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B', 'L'];
   let showActions = $state(false);
+
+  // Fecha as ações automaticamente se o usuário clicar fora do grupo de música
+  $effect(() => {
+    if (!showActions) return;
+
+    function handleWindowClick() {
+      showActions = false;
+    }
+
+    window.addEventListener('click', handleWindowClick);
+    return () => window.removeEventListener('click', handleWindowClick);
+  });
 </script>
 
-<header class="header-row">
-  <!-- Grupo Esquerdo: Menu, Tom e BPM -->
-  <div class="left-controls">
-    <button class="icon-btn" onclick={onOpenMenu} title="Menu Principal" aria-label="Menu">
+<header class="header-toolbar">
+  <!-- Linha 1: Menu + Grupo do Tom + Grupo do BPM (Prints 1 e 2) -->
+  <div class="left-cluster">
+    <button type="button" class="btn-menu" onclick={onOpenMenu} title="Menu Principal" aria-label="Menu">
       <Menu size={22} />
     </button>
 
-    <!-- Seletor de Tom -->
-    <div class="btn-group">
-      <button class="teal-btn px-2" onclick={() => onKeyChange(-1)} aria-label="Tom anterior">
-        <Minus size={14} />
-      </button>
-      <select 
-        class="key-select" 
-        value={selectedKey} 
-        onchange={(e) => onKeyChange(e.target.value)}
-        aria-label="Selecionar tom"
+    <!-- Seletor de Tom: Botões - e + do mesmo tamanho do + da música (46px) -->
+    <div class="input-group group-key">
+      <button 
+        type="button" 
+        class="btn-teal btn-step" 
+        onclick={() => onKeyChange(-1)} 
+        aria-label="Diminuir tom"
       >
-        {#each keys as key}
-          <option value={key}>{key === 'L' ? 'Letra' : key}</option>
-        {/each}
-      </select>
-      <button class="teal-btn px-2" onclick={() => onKeyChange(1)} aria-label="Próximo tom">
-        <Plus size={14} />
+        <Minus size={16} strokeWidth={2.5} />
+      </button>
+
+      <div class="select-wrapper">
+        <select 
+          class="group-select text-center" 
+          value={selectedKey} 
+          onchange={(e) => onKeyChange(e.target.value)}
+          aria-label="Tom"
+        >
+          {#each keys as k}
+            <option value={k}>{k === 'L' ? 'Letra' : k}</option>
+          {/each}
+        </select>
+        <ChevronDown size={14} class="select-arrow" />
+      </div>
+
+      <button 
+        type="button" 
+        class="btn-teal btn-step" 
+        onclick={() => onKeyChange(1)} 
+        aria-label="Aumentar tom"
+      >
+        <Plus size={16} strokeWidth={2.5} />
       </button>
     </div>
 
-    <!-- Seletor de BPM -->
-    <div class="btn-group bpm-group">
-      <button class="teal-btn px-1 text-xs" onclick={() => onBpmChange(-5)}>-5</button>
-      <button class="teal-btn px-1" onclick={() => onBpmChange(-1)}><Minus size={12} /></button>
+    <!-- Seletor de BPM: Botões ampliados (-5, -, input, +5) -->
+    <div class="input-group group-bpm">
+      <button 
+        type="button" 
+        class="btn-teal btn-bpm-step" 
+        onclick={() => onBpmChange(-5)} 
+        aria-label="-5 BPM"
+      >
+        -5
+      </button>
+      <button 
+        type="button" 
+        class="btn-teal btn-bpm-single border-left" 
+        onclick={() => onBpmChange(-1)} 
+        aria-label="-1 BPM"
+      >
+        <Minus size={14} strokeWidth={2.5} />
+      </button>
       <input 
         type="number" 
         class="bpm-input" 
@@ -52,175 +101,283 @@
         onchange={(e) => onBpmChange(Number(e.target.value))}
         min="1" 
         max="999" 
+        aria-label="BPM"
       />
-      <button class="teal-btn px-1 text-xs" onclick={() => onBpmChange(5)}>+5</button>
+      <button 
+        type="button" 
+        class="btn-teal btn-bpm-step border-left" 
+        onclick={() => onBpmChange(5)} 
+        aria-label="+5 BPM"
+      >
+        +5
+      </button>
     </div>
   </div>
 
-  <!-- Grupo Direito: Seleção da Música e Ações -->
-  <div class="right-controls">
+  <!-- Linha 2 no Celular / Continuação no PC: Seleção de Música e Ações (Print 2) -->
+  <div 
+    class="right-cluster" 
+    onclick={(e) => e.stopPropagation()} 
+    role="presentation"
+  >
     {#if isEditing}
-      <input type="text" class="song-input" placeholder="Título da música..." />
-      <button class="action-btn btn-save" title="Salvar"><Save size={18} /></button>
-      <button class="action-btn btn-cancel" title="Cancelar"><X size={18} /></button>
-    {:else}
-      <div class="song-select-wrapper">
-        <Search size={16} class="search-icon" />
-        <input type="search" class="song-search" placeholder="Escolha a Música..." />
+      <div class="input-group song-group">
+        <input type="text" class="song-input" placeholder="Título da música..." />
+        <button type="button" class="btn-action btn-save" onclick={onSaveSong} title="Salvar"><Save size={18} /></button>
+        <button type="button" class="btn-action btn-cancel" onclick={onCancelEdit} title="Cancelar"><X size={18} /></button>
       </div>
-
-      <button class="teal-btn action-toggle" onclick={() => (showActions = !showActions)}>
-        <Plus size={18} />
-      </button>
-
-      {#if showActions}
-        <div class="actions-popup">
-          <button class="action-btn btn-add" title="Adicionar"><FilePlus size={18} /></button>
-          <button class="action-btn btn-edit" title="Editar"><Edit size={18} /></button>
-          <button class="action-btn btn-delete" title="Excluir"><Trash2 size={18} /></button>
+    {:else}
+      <div class="input-group song-group">
+        <div class="select-wrapper flex-grow">
+          <select 
+            class="song-select" 
+            value={selectedSongId}
+            onchange={(e) => { if (onSongChange) onSongChange(e.target.value); }}
+            aria-label="Escolha a Música"
+          >
+            <option value="">Escolha a Música...</option>
+            {#each songs as song}
+              <option value={song.id}>{song.title}</option>
+            {/each}
+          </select>
+          <ChevronDown size={15} class="select-arrow" />
         </div>
-      {/if}
+
+        {#if !showActions}
+          <!-- Botão "+" de Ações (mesmo tamanho dos botões - e + do tom: 46px) -->
+          <button 
+            type="button" 
+            class="btn-teal btn-action-toggle" 
+            onclick={(e) => {
+              e.stopPropagation();
+              showActions = true;
+            }}
+            title="Ações"
+            aria-label="Expandir ações"
+          >
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+        {:else}
+          <!-- Botões Extras Colados no Select (Adicionar, Editar e Excluir) -->
+          <button 
+            type="button" 
+            class="btn-action btn-add" 
+            onclick={(e) => { e.stopPropagation(); if (onAddSong) onAddSong(); }} 
+            title="Adicionar Música"
+          >
+            <FilePlus size={17} />
+          </button>
+          <button 
+            type="button" 
+            class="btn-action btn-edit" 
+            onclick={(e) => { e.stopPropagation(); if (onEditSong) onEditSong(); }} 
+            title="Editar Música"
+          >
+            <Edit size={17} />
+          </button>
+          <button 
+            type="button" 
+            class="btn-action btn-delete" 
+            onclick={(e) => { e.stopPropagation(); if (onDeleteSong) onDeleteSong(); }} 
+            title="Excluir Música"
+          >
+            <Trash2 size={17} />
+          </button>
+        {/if}
+      </div>
     {/if}
   </div>
 </header>
 
 <style>
-  .header-row {
+  /* TOOLBAR RESPONSIVA CONFORME PRINTS:
+     - No Desktop: tudo em uma linha contínua.
+     - No Celular (< 680px): quebra para 2 linhas com gap vertical limpo de 4px. */
+  .header-toolbar {
     display: flex;
-    gap: 6px;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-
-  .left-controls, .right-controls {
-    display: flex;
     gap: 5px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .left-cluster {
+    display: flex;
     align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
   }
 
-  .right-controls {
-    flex: 1;
+  .right-cluster {
+    flex: 1 1 270px;
     min-width: 250px;
-    position: relative;
+    display: flex;
   }
 
-  .icon-btn {
+  /* Ajuste no celular: quebra para 100% de largura com espaçamento de 4px */
+  @media (max-width: 680px) {
+    .left-cluster {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .right-cluster {
+      width: 100%;
+      flex: 1 1 100%;
+    }
+  }
+
+  .btn-menu {
     background: transparent;
     border: none;
     color: var(--app-text);
     cursor: pointer;
     display: flex;
     align-items: center;
-    padding: 6px;
-    border-radius: 6px;
+    justify-content: center;
+    padding: 0 4px;
+    height: 38px;
   }
 
-  .btn-group {
+  /* INPUT-GROUPS COM ALTURA 38px */
+  .input-group {
     display: flex;
+    height: 38px;
     border-radius: 6px;
     overflow: hidden;
     border: 1px solid var(--app-border);
+    background: var(--app-surface);
   }
 
-  .teal-btn {
+  .song-group {
+    width: 100%;
+  }
+
+  .btn-teal {
     background-color: var(--app-teal);
-    color: #fff;
+    color: #ffffff;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s;
+    transition: background-color 0.15s ease;
+    user-select: none;
   }
 
-  .teal-btn:hover {
+  .btn-teal:hover {
     background-color: var(--app-teal-hover);
   }
 
-  .px-1 { padding: 6px 8px; }
-  .px-2 { padding: 6px 12px; }
-  .text-xs { font-size: 11px; font-weight: bold; }
+  /* LARGURAS DOS BOTÕES DO TOM E DO "+" DA MÚSICA IDENTICAS (46px) */
+  .btn-step {
+    width: 46px;
+  }
 
-  .key-select {
+  .btn-action-toggle {
+    width: 46px;
+  }
+
+  /* BOTÕES DO BPM AMPLIADOS */
+  .btn-bpm-step {
+    width: 38px;
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  .btn-bpm-single {
+    width: 34px;
+  }
+
+  .border-left {
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  /* ENVOLTÓRIO DO SELECT COM SETA CHEVRON */
+  .select-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
     background: var(--app-surface);
+  }
+
+  .flex-grow {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :global(.select-arrow) {
+    position: absolute;
+    right: 8px;
+    color: #495057;
+    pointer-events: none;
+  }
+
+  .group-select {
+    width: 62px;
+    height: 100%;
+    background: transparent;
     color: var(--app-text);
     border: none;
     font-weight: bold;
-    text-align: center;
-    padding: 6px 8px;
+    font-size: 15px;
+    padding-left: 12px;
+    padding-right: 20px;
     cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
   }
 
   .bpm-input {
     width: 48px;
+    height: 100%;
     background: var(--app-surface);
     color: var(--app-text);
     border: none;
     text-align: center;
     font-weight: bold;
-    padding: 4px;
+    font-size: 15px;
+    outline: none;
+    padding: 0;
+    -moz-appearance: textfield;
   }
 
-  .song-select-wrapper {
-    position: relative;
-    flex: 1;
-    display: flex;
-    align-items: center;
+  .bpm-input::-webkit-outer-spin-button,
+  .bpm-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 
-  .song-search, .song-input {
+  .song-select, .song-input {
     width: 100%;
-    padding: 8px 12px 8px 32px;
-    background: var(--app-surface);
+    height: 100%;
+    background: transparent;
     color: var(--app-text);
-    border: 1px solid var(--app-border);
-    border-radius: 6px;
-    font-size: 14px;
-  }
-
-  .song-input {
-    padding-left: 12px;
-  }
-
-  :global(.search-icon) {
-    position: absolute;
-    left: 10px;
-    color: #888;
-    pointer-events: none;
-  }
-
-  .action-toggle {
-    padding: 8px 12px;
-    border-radius: 6px;
-  }
-
-  .actions-popup {
-    display: flex;
-    gap: 4px;
-    position: absolute;
-    right: 44px;
-    background: var(--app-surface);
-    padding: 4px;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px var(--app-shadow);
-    border: 1px solid var(--app-border);
-    z-index: 10;
-  }
-
-  .action-btn {
     border: none;
-    color: white;
-    padding: 6px 10px;
-    border-radius: 4px;
+    font-size: 14px;
+    padding: 0 28px 0 12px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  /* BOTÕES EXTRAS (ADICIONAR, EDITAR, EXCLUIR) */
+  .btn-action {
+    border: none;
+    color: #ffffff;
+    width: 40px;
     cursor: pointer;
     display: flex;
     align-items: center;
+    justify-content: center;
+    transition: filter 0.15s ease;
   }
 
-  .btn-add { background: #198754; }
-  .btn-edit { background: #0dcaf0; }
-  .btn-delete { background: #dc3545; }
-  .btn-save { background: #0d6efd; }
-  .btn-cancel { background: #6c757d; }
+  .btn-action:hover { filter: brightness(0.9); }
+  .btn-add { background-color: #198754; }    /* Verde */
+  .btn-edit { background-color: #0dcaf0; }   /* Ciano */
+  .btn-delete { background-color: #dc3545; } /* Vermelho */
+  .btn-save { background-color: #0d6efd; width: 44px; }
+  .btn-cancel { background-color: #6c757d; width: 44px; }
 </style>

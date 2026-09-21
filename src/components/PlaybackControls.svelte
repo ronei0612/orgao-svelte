@@ -23,7 +23,6 @@
     </button>
   {/if}
 
-  <!-- Botão Play / Stop Circular -->
   <button 
     type="button"
     class="btn-circle btn-play" 
@@ -33,10 +32,8 @@
     aria-label={isPlaying ? "Parar" : "Reproduzir"}
   >
     {#if isPlaying}
-      <!-- Ícone Stop: Quadrado Branco Arredondado -->
       <span class="icon-stop"></span>
     {:else}
-      <!-- Ícone Play: Triângulo Branco Centralizado -->
       <span class="icon-play"></span>
     {/if}
   </button>
@@ -49,7 +46,6 @@
     </button>
   {/if}
 
-  <!-- Botão de Fase Harmônica (btn-music) -->
   <button 
     type="button"
     class="btn-circle btn-music" 
@@ -59,21 +55,18 @@
     aria-label="Fase Harmônica"
   >
     {#if phase === 1}
-      <!-- Fase 1: Nota simples preenchida (estilo bi-music-note) -->
       <svg class="music-svg" viewBox="0 0 16 16" width="22" height="22" fill="currentColor">
         <path d="M9 13c0 1.105-1.12 2-2.5 2S4 14.105 4 13s1.12-2 2.5-2 2.5.895 2.5 2z"/>
         <path fill-rule="evenodd" d="M9 3v10H8V3h1z"/>
         <path d="M8 2.82a1 1 0 0 1 .804-.98l3-1.2A1 1 0 0 1 13 1.6V4a1 1 0 0 1-.804.98l-3 1.2A1 1 0 0 1 8 5.2V2.82z"/>
       </svg>
     {:else if phase === 2}
-      <!-- Fase 2: Notas duplas ligadas (estilo bi-music-note-beamed) -->
       <svg class="music-svg" viewBox="0 0 16 16" width="24" height="24" fill="currentColor">
         <path d="M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13s1.12-2 2.5-2 2.5.895 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z"/>
         <path fill-rule="evenodd" d="M14 11V2h1v9h-1zM6 13V4h1v9H6z"/>
         <path d="M6 3.5 15 1.5v2L6 5.5v-2z"/>
       </svg>
     {:else}
-      <!-- Fase 3: Som Cheio -->
       <span class="music-emoji">🎶</span>
     {/if}
   </button>
@@ -84,8 +77,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 24px;
-    padding: 10px 0;
+    gap: 22px;
+    padding: 2px 0; /* Altura compacta */
   }
 
   .nav-btn {
@@ -96,14 +89,8 @@
     display: flex;
     align-items: center;
     padding: 0;
-    transition: color 0.2s;
   }
 
-  .nav-btn:hover {
-    color: var(--app-teal);
-  }
-
-  /* BOTÕES CIRCULARES PADRÃO (52px x 52px) */
   .btn-circle {
     width: 52px;
     height: 52px;
@@ -123,26 +110,22 @@
     transform: scale(0.93);
   }
 
-  /* ESTADO PARADO: Azul com brilho ciano suave */
   .btn-play {
     background-color: #2680eb;
     box-shadow: 0 0 18px 5px rgba(38, 128, 235, 0.45);
   }
 
-  /* ESTADO REPRODUZINDO: Coral/Vermelho com brilho avermelhado */
   .btn-play.playing {
     background-color: #ff5733;
     box-shadow: 0 0 22px 6px rgba(255, 87, 51, 0.55);
   }
 
-  /* METRÔNOMO VISUAL */
   .btn-play.bpm-blink {
     filter: brightness(1.35);
     transform: scale(1.06);
     box-shadow: 0 0 26px 8px rgba(255, 255, 255, 0.9);
   }
 
-  /* ÍCONE DE PLAY (Triângulo Branco Perfeito) */
   .icon-play {
     width: 0;
     height: 0;
@@ -153,7 +136,6 @@
     border-radius: 2px;
   }
 
-  /* ÍCONE DE STOP (Quadrado Branco com Cantos Arredondados) */
   .icon-stop {
     width: 17px;
     height: 17px;
@@ -161,7 +143,6 @@
     border-radius: 3px;
   }
 
-  /* BOTÃO DE FASE HARMÔNICA (Teal/Verde-Petróleo Sólido) */
   .btn-music {
     background-color: #0b8e8e;
     box-shadow: 0 0 10px 1px rgba(11, 142, 142, 0.3);
@@ -171,12 +152,6 @@
     box-shadow: 0 0 18px 4px rgba(11, 142, 142, 0.7);
   }
 
-  .music-svg {
-    fill: #ffffff;
-  }
-
-  .music-emoji {
-    font-size: 20px;
-    line-height: 1;
-  }
+  .music-svg { fill: #ffffff; }
+  .music-emoji { font-size: 20px; line-height: 1; }
 </style>

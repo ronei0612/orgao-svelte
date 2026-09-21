@@ -1,6 +1,6 @@
 /**
  * src/audio/rhythmEngine.js
- * Sequenciador rítmico melódico de 5 vozes com condução harmônica correta (Octave Shift e Pianada).
+ * Sequenciador rítmico melódico de 5 vozes com ordenação alfabética e troca de fase no próximo acorde.
  */
 
 import { sampleEngine } from './sampleEngine.js';
@@ -46,18 +46,19 @@ class RhythmEngine {
 
   getRhythmsList() {
     const instRhythms = this.rawRhythms[this.currentInstrument] || {};
-    return ['Sem ritmo', ...Object.keys(instRhythms)];
+    const sortedKeys = Object.keys(instRhythms).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
+    return ['Sem ritmo', ...sortedKeys];
   }
 
   setBpm(newBpm) {
     this.bpm = Math.max(30, Math.min(300, Number(newBpm) || 90));
   }
 
+  // Apenas armazena a nova fase. O som NÃO muda no meio do compasso, só no próximo triggerChord!
   setPhase(newPhase) {
     this.phase = newPhase;
-    if (this.currentChord) {
-      this.currentVoicesFiles = this.calculateVoiceFiles(this.currentChord, this.phase);
-    }
   }
 
   async setInstrument(inst) {
@@ -66,10 +67,6 @@ class RhythmEngine {
     await this.audio.preloadStudio(inst);
 
     this.setRhythm(this.currentRhythmName);
-
-    if (this.currentChord) {
-      this.currentVoicesFiles = this.calculateVoiceFiles(this.currentChord, this.phase);
-    }
   }
 
   setRhythm(name) {
@@ -86,7 +83,6 @@ class RhythmEngine {
     if (data) {
       this.activeRhythmData = {
         numSteps: data.numSteps || data.steps || 8,
-        // vozes[0] é V5 (topo), vozes[4] é V1 (baixo)
         v5: [...(data.vozes ? data.vozes[0] : (data.v5 || []))],
         v4: [...(data.vozes ? data.vozes[1] : (data.v4 || []))],
         v3: [...(data.vozes ? data.vozes[2] : (data.v3 || []))],
@@ -105,8 +101,6 @@ class RhythmEngine {
     const bass = this.audio.normalizeNoteForFile(parsed.bass);
     const prefix = this.currentInstrument === 'piano' ? 'piano' : 'orgao';
 
-    // Helper Matemático com OCTAVE SHIFT:
-    // Faz a nota subir para a oitava seguinte se cruzar o Dó (ex: em Sol maior, Ré vai para 4ª oitava)
     const getNote = (intervalIdx, baseOct) => {
       const abs = rootIdx + intervals[intervalIdx];
       const noteClass = this.audio.chromatic[abs % 12];
@@ -117,33 +111,25 @@ class RhythmEngine {
     };
 
     const files = {};
-
-    // V1 e V2: Baixos graves (oitavas 2 e 3)
     files[1] = `${prefix}_${bass}2.ogg`;
     files[2] = `${prefix}_${bass}3.ogg`;
 
     if (this.currentInstrument === 'piano') {
-      // === COMPORTAMENTO DO PIANO ===
       if (phase === 3) {
-        // Modo Cheio: oitava 4 e Pianada cheia na Voz 5
         files[3] = getNote(0, 4);
         files[4] = getNote(1, 4);
         files[5] = [getNote(0, 4), getNote(1, 4), getNote(2, 4)];
       } else {
-        // Modo Normal: inversão de apoio
         files[3] = getNote(1, 3);
         files[4] = getNote(2, 3);
         files[5] = [getNote(1, 3), getNote(2, 3), getNote(0, 4)];
       }
     } else {
-      // === COMPORTAMENTO DO ÓRGÃO ===
       if (phase === 3) {
-        // Modo Cheio: oitava 4 completa
         files[3] = getNote(0, 4);
         files[4] = getNote(1, 4);
         files[5] = getNote(2, 4);
       } else {
-        // Modo Normal: Terça 3, Quinta 3, Fundamental 4
         files[3] = getNote(1, 3);
         files[4] = getNote(2, 3);
         files[5] = getNote(0, 4);
@@ -164,6 +150,7 @@ class RhythmEngine {
 
     this.audio.init();
     this.currentChord = chordStr;
+    // Aqui sim aplica a fase ativa ao disparar o novo acorde
     this.currentVoicesFiles = this.calculateVoiceFiles(chordStr, this.phase);
 
     this.audio.stopRhythmNotes();
@@ -185,8 +172,8 @@ class RhythmEngine {
       if (!this.isPlaying) return;
 
       const now = this.audio.ctx.currentTime;
-      const beatDuration = 60.0 / this.bpm; // Semínima
-      const stepDuration = beatDuration / 2; // Colcheia
+      const beatDuration = 60.0 / this.bpm;
+      const stepDuration = beatDuration / 2;
 
       if (now >= this.nextBlinkTime) {
         this.nextBlinkTime += beatDuration;

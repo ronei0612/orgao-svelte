@@ -16,8 +16,11 @@
   let isDarkMode = $state(false);
   let currentKey = $state('C');
   let currentBpm = $state(90);
-  let activeChord = $state(null);
+
+  // activeSlot guarda o botão que está tocando (permanece afundado com aura mesmo mudando o Tom no topo)
+  let activeSlot = $state(null);
   let currentPlayingChord = $state('C');
+
   let isPlaying = $state(false);
   let isBlinking = $state(false);
   let musicPhase = $state(1);
@@ -27,14 +30,11 @@
   let selectedRhythm = $state('Sem ritmo');
 
   onMount(async () => {
-    // 1. Pré-carrega o fundo contínuo (Órgão + Cordas)
     sampleEngine.preloadAll();
 
-    // 2. Inicializa o motor de ritmos
     await rhythmEngine.init();
     rhythmsList = rhythmEngine.getRhythmsList();
 
-    // 3. Piscar visual do botão Play com o metrônomo
     rhythmEngine.onMetronomeTick = () => {
       isBlinking = true;
       setTimeout(() => { isBlinking = false; }, 100);
@@ -52,6 +52,7 @@
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }
 
+  // MUDAR O TOM NÃO TROCA O SOM QUE ESTÁ SOANDO! O som continua o mesmo até clicar num novo acorde.
   function handleKeyChange(newVal) {
     if (typeof newVal === 'number') {
       const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -70,14 +71,10 @@
     rhythmEngine.setBpm(currentBpm);
   }
 
+  // MUDAR A FASE NÃO TROCA O SOM INSTANTANEAMENTE: o som só mudará no PRÓXIMO acorde tocado!
   function handlePhaseChange(nextPhase) {
     musicPhase = nextPhase;
     rhythmEngine.setPhase(musicPhase);
-
-    // Se estiver tocando, atualiza o som ao vivo com o novo timbre/fase
-    if (isPlaying && currentPlayingChord) {
-      sampleEngine.playChord(currentPlayingChord, musicPhase);
-    }
   }
 
   function handleRhythmChange(rhythmName) {
@@ -96,9 +93,9 @@
     }
   }
 
-  // DISPARO SINCRONIZADO: O acorde clicado permanece ativo e com aura luminosa
-  function handleChordClick(chordName) {
-    activeChord = chordName;
+  // DISPARO DE ACORDE: Salva o slot e o acorde sonoro
+  function handleChordClick(chordName, slotId) {
+    activeSlot = slotId;
     currentPlayingChord = chordName;
     isPlaying = true;
 
@@ -111,10 +108,11 @@
     if (!isPlaying) {
       sampleEngine.stopAll();
       rhythmEngine.stop();
-      activeChord = null;
+      activeSlot = null;
     } else {
+      // Se der play sem acorde prévio, ativa a tônica (slot main-0)
+      activeSlot = activeSlot || 'main-0';
       const chordToPlay = currentPlayingChord || currentKey;
-      activeChord = chordToPlay;
       sampleEngine.playChord(chordToPlay, musicPhase);
       rhythmEngine.triggerChord(chordToPlay, musicPhase, currentBpm);
     }
@@ -122,6 +120,7 @@
 </script>
 
 <div class="app-container">
+  <!-- Header com layout e espaçamento fiel aos Prints 1 e 2 -->
   <Header 
     onOpenMenu={() => (isMenuOpen = true)}
     selectedKey={currentKey}
@@ -140,7 +139,6 @@
     onInstrumentClick={handleToggleInstrument} 
   />
 
-  <!-- Play/Stop e Fase Harmônica lado a lado, sem setas indesejadas -->
   <PlaybackControls 
     isPlaying={isPlaying} 
     isBlinking={isBlinking}
@@ -149,10 +147,10 @@
     onPhaseChange={handlePhaseChange}
   />
 
-  <!-- Painel de Acordes com as duas linhas e a aura luminosa persistente -->
+  <!-- Painel de Acordes onde o botão ativo permanece aceso ao mudar o Tom -->
   <ChordPanel 
     selectedKey={currentKey}
-    activeChord={activeChord} 
+    activeSlot={activeSlot} 
     onChordClick={handleChordClick} 
   />
 
