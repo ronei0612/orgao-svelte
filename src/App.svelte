@@ -9,24 +9,36 @@
   import Drawer from './components/Drawer.svelte';
 
   import { sampleEngine } from './audio/sampleEngine.js';
+  import { rhythmEngine } from './audio/rhythmEngine.js';
 
-  // Estados reativos
+  // Estados reativos (Svelte 5 Runes)
   let isMenuOpen = $state(false);
   let isDarkMode = $state(false);
   let currentKey = $state('C');
   let currentBpm = $state(90);
   let activeChord = $state(null);
   let isPlaying = $state(false);
+  let isBlinking = $state(false);
   let musicPhase = $state(1);
+  let currentInstrument = $state('orgao');
 
-  // =========================================================================
-  // DISPARO DO PRÉ-CARREGAMENTO AO ABRIR O SITE
-  // =========================================================================
-  onMount(() => {
-    // Carrega todas as amostras para a memória RAM logo na inicialização
+  let rhythmsList = $state(['Sem ritmo']);
+  let selectedRhythm = $state('Sem ritmo');
+
+  onMount(async () => {
+    // 1. Pré-carrega o pad contínuo do órgão
     sampleEngine.preloadAll();
 
-    // Desbloqueia o contexto de áudio no primeiro toque na tela (exigência de celulares)
+    // 2. Inicializa o sequenciador e obtém os ritmos do instrumento padrão
+    await rhythmEngine.init();
+    rhythmsList = rhythmEngine.getRhythmsList();
+
+    // 3. Metrônomo visual no botão Play
+    rhythmEngine.onMetronomeTick = () => {
+      isBlinking = true;
+      setTimeout(() => { isBlinking = false; }, 100);
+    };
+
     const unlockAudio = () => {
       sampleEngine.init();
       window.removeEventListener('pointerdown', unlockAudio);
@@ -54,23 +66,59 @@
 
   function handleBpmChange(val) {
     currentBpm = Math.max(30, Math.min(300, currentBpm + val));
+    rhythmEngine.setBpm(currentBpm);
   }
 
+  function handlePhaseChange(nextPhase) {
+    musicPhase = nextPhase;
+    rhythmEngine.setPhase(musicPhase);
+    if (isPlaying && activeChord) {
+      sampleEngine.playChord(activeChord, musicPhase);
+    }
+  }
+
+  function handleRhythmChange(rhythmName) {
+    selectedRhythm = rhythmName;
+    rhythmEngine.setRhythm(rhythmName);
+  }
+
+  async function handleToggleInstrument() {
+    currentInstrument = currentInstrument === 'orgao' ? 'piano' : 'orgao';
+    await rhythmEngine.setInstrument(currentInstrument);
+    rhythmsList = rhythmEngine.getRhythmsList();
+
+    // Se o ritmo selecionado não existir no novo instrumento, reseta
+    if (!rhythmsList.includes(selectedRhythm)) {
+      selectedRhythm = 'Sem ritmo';
+      rhythmEngine.setRhythm('Sem ritmo');
+    }
+  }
+
+  // =========================================================================
+  // DISPARO SINCRONIZADO: Fundo Contínuo + Acompanhamento Melódico do Ritmo
+  // =========================================================================
   function handleChordClick(chordName) {
     activeChord = chordName;
     isPlaying = true;
-    sampleEngine.playChord(chordName);
+
+    sampleEngine.playChord(chordName, musicPhase);
+    rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
 
     setTimeout(() => {
       if (activeChord === chordName) activeChord = null;
-    }, 350);
+    }, 300);
   }
 
   function handleTogglePlay() {
     isPlaying = !isPlaying;
     if (!isPlaying) {
       sampleEngine.stopAll();
+      rhythmEngine.stop();
       activeChord = null;
+    } else {
+      const chordToPlay = activeChord || currentKey;
+      sampleEngine.playChord(chordToPlay, musicPhase);
+      rhythmEngine.triggerChord(chordToPlay, musicPhase, currentBpm);
     }
   }
 </script>
@@ -86,13 +134,21 @@
 
   <MainDisplay />
 
-  <RhythmBar onInstrumentClick={() => alert('Troca de instrumento')} />
+  <!-- Seleção do Ritmo e Instrumento (com suporte a alternar Órgão / Piano) -->
+  <RhythmBar 
+    rhythms={rhythmsList}
+    selectedRhythm={selectedRhythm}
+    currentInstrument={currentInstrument}
+    onRhythmSelect={handleRhythmChange}
+    onInstrumentClick={handleToggleInstrument} 
+  />
 
   <PlaybackControls 
     isPlaying={isPlaying} 
+    isBlinking={isBlinking}
     phase={musicPhase}
     onTogglePlay={handleTogglePlay} 
-    onPhaseChange={(p) => { musicPhase = p; }}
+    onPhaseChange={handlePhaseChange}
   />
 
   <ChordPanel 

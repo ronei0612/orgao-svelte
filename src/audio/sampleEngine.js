@@ -4,22 +4,20 @@ class SampleEngine {
     this.buffers = new Map();
     this.activeChordNodes = [];
     this.activePianoNodes = new Map();
+    this.activeRhythmNodes = [];
     this.masterGain = null;
 
     this.baseUrl = `${import.meta.env.BASE_URL}assets/audio/`;
 
-    // As 12 notas conforme o padrão dos seus arquivos (sustenido é '_')
     this.fileNotes = ['c', 'c_', 'd', 'd_', 'e', 'f', 'f_', 'g', 'g_', 'a', 'a_', 'b'];
-    this.octaves = [2, 3, 4];
-
     this.chromatic = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     this.enarmonics = { 'DB': 'C#', 'EB': 'D#', 'GB': 'F#', 'AB': 'G#', 'BB': 'A#' };
 
-    this.attackTime = 0.15; // Ataque imediato (20ms)
-    this.releaseTime = 0.25; // Corte suave
+    this.attackTime = 0.15;
+    this.releaseTime = 0.20;
 
     this.isPreloaded = false;
-    this.isLoading = false;
+    this.preloadedStudio = { orgao: false, piano: false };
   }
 
   init() {
@@ -40,17 +38,15 @@ class SampleEngine {
     }
   }
 
-  // Converte "C#" para "c_" e "C" para "c"
   normalizeNoteForFile(noteStr) {
     let note = noteStr.toUpperCase();
     if (this.enarmonics[note]) note = this.enarmonics[note];
     return note.toLowerCase().replace('#', '_');
   }
 
-  // Gera o nome exato: orgao_c2.ogg ou orgao_c_2.ogg
-  getFileName(noteStr, octave = 3) {
+  getFileName(noteStr, octave = 3, prefix = 'orgao') {
     const fileNote = this.normalizeNoteForFile(noteStr);
-    return `orgao_${fileNote}${octave}.ogg`;
+    return `${prefix}_${fileNote}${octave}.ogg`;
   }
 
   getNoteIndex(noteStr) {
@@ -59,50 +55,14 @@ class SampleEngine {
     return this.chromatic.indexOf(note);
   }
 
-  async loadBuffer(url) {
-    if (this.buffers.has(url)) return this.buffers.get(url);
-
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('text/html')) {
-        throw new Error('Arquivo não encontrado no public (servidor retornou HTML)');
-      }
-
-      const arrayBuffer = await res.arrayBuffer();
-      const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-      this.buffers.set(url, audioBuffer);
-      return audioBuffer;
-    } catch (err) {
-      console.warn(`[Áudio] Falha ao carregar: ${url} ->`, err.message);
-      return null;
-    }
-  }
-
-  // =========================================================================
-  // PRÉ-CARREGAMENTO DOS 36 ARQUIVOS EXATOS (12 notas x oitavas 2, 3 e 4)
-  // =========================================================================
-  async preloadAll() {
-    if (this.isPreloaded || this.isLoading) return;
-    this.isLoading = true;
-    this.init();
-
-    const urls = [];
-
-    for (const note of this.fileNotes) {
-      for (const oct of this.octaves) {
-        urls.push(`${this.baseUrl}Orgao/orgao_${note}${oct}.ogg`);
-      }
-    }
-
-    const promises = urls.map((url) => this.loadBuffer(url));
-    await Promise.allSettled(promises);
-
-    this.isPreloaded = true;
-    this.isLoading = false;
-    console.log(`[Áudio] ✅ Pronto! Todas as 36 amostras do Órgão (oitavas 2, 3 e 4) estão na RAM!`);
+  getIntervals(suffix) {
+    if (suffix.includes('m7b5')) return [0, 3, 6, 10];
+    if (suffix.includes('dim') || suffix.includes('°')) return [0, 3, 6, 9];
+    if (suffix.includes('m7')) return [0, 3, 7, 10];
+    if (suffix.includes('maj7') || suffix.includes('7M')) return [0, 4, 7, 11];
+    if (suffix.includes('m')) return [0, 3, 7];
+    if (suffix.includes('7')) return [0, 4, 7, 10];
+    return [0, 4, 7];
   }
 
   parseChord(chordStr) {
@@ -116,20 +76,116 @@ class SampleEngine {
     };
   }
 
-  getIntervals(suffix) {
-    if (suffix.includes('m7b5')) return [0, 3, 6, 10];
-    if (suffix.includes('dim') || suffix.includes('°')) return [0, 3, 6, 9];
-    if (suffix.includes('m7')) return [0, 3, 7, 10];
-    if (suffix.includes('maj7') || suffix.includes('7M')) return [0, 4, 7, 11];
-    if (suffix.includes('m')) return [0, 3, 7];
-    if (suffix.includes('7')) return [0, 4, 7, 10];
-    return [0, 4, 7]; // Tríade Maior
+  async loadBuffer(url) {
+    if (this.buffers.has(url)) return this.buffers.get(url);
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('Arquivo não encontrado no public (retornou HTML)');
+      }
+
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+      this.buffers.set(url, audioBuffer);
+      return audioBuffer;
+    } catch (err) {
+      console.warn(`[Áudio] Falha ao carregar: ${url} ->`, err.message);
+      return null;
+    }
   }
 
-  // Monta as 3 camadas do acorde:
-  // - Baixo pedal: Oitava 2 (ex: orgao_c2.ogg)
-  // - Harmonia: Oitava 3 (ex: orgao_c3.ogg, orgao_e3.ogg, orgao_g3.ogg)
-  // - Se Fase 3: adiciona Oitava 4
+  // Pré-carrega as 36 amostras do fundo contínuo (Orgao/ oitavas 2 a 4)
+  async preloadAll() {
+    if (this.isPreloaded) return;
+    this.init();
+
+    const urls = [];
+    for (const note of this.fileNotes) {
+      for (const oct of [2, 3, 4]) {
+        urls.push(`${this.baseUrl}Orgao/orgao_${note}${oct}.ogg`);
+      }
+    }
+    await Promise.allSettled(urls.map((u) => this.loadBuffer(u)));
+    this.isPreloaded = true;
+  }
+
+  // Pré-carrega as amostras de estúdio para os ritmos (oitavas 2 a 5)
+  async preloadStudio(instrument = 'orgao') {
+    if (this.preloadedStudio[instrument]) return;
+    this.init();
+
+    const folder = instrument === 'piano' ? 'Piano' : 'Orgao';
+    const prefix = instrument === 'piano' ? 'piano' : 'orgao';
+    const octaves = [2, 3, 4, 5];
+
+    const urls = [];
+    for (const note of this.fileNotes) {
+      for (const oct of octaves) {
+        urls.push(`${this.baseUrl}studio/${folder}/${prefix}_${note}${oct}.ogg`);
+      }
+    }
+
+    await Promise.allSettled(urls.map((u) => this.loadBuffer(u)));
+    this.preloadedStudio[instrument] = true;
+    console.log(`[Studio] ✅ Amostras de ${instrument.toUpperCase()} carregadas!`);
+  }
+
+  // Toca uma ou mais notas da melodia do ritmo (Vozes 1 a 5)
+  async playStudioNote(instrument, fileOrArray, volume = 1.0, time = 0) {
+    this.init();
+    if (!fileOrArray) return;
+    if (!time) time = this.ctx.currentTime;
+
+    const files = Array.isArray(fileOrArray) ? fileOrArray : [fileOrArray];
+    const folder = instrument === 'piano' ? 'Piano' : 'Orgao';
+    const adjustedVol = Array.isArray(fileOrArray) ? volume * 0.75 : volume;
+
+    for (const fileName of files) {
+      const url = `${this.baseUrl}studio/${folder}/${fileName}`;
+      const buffer = this.buffers.get(url) || await this.loadBuffer(url);
+      if (!buffer || !this.ctx) continue;
+
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = false;
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(adjustedVol, time);
+
+      source.connect(gain);
+      gain.connect(this.masterGain);
+
+      source.start(time);
+      this.activeRhythmNodes.push({ source, gain });
+    }
+
+    if (this.activeRhythmNodes.length > 30) {
+      this.activeRhythmNodes.splice(0, 10);
+    }
+  }
+
+  // Corta as notas do ritmo com release suave ao mudar de acorde ou parar
+  stopRhythmNotes() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    this.activeRhythmNodes.forEach(({ source, gain }) => {
+      try {
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + this.releaseTime);
+        source.stop(now + this.releaseTime + 0.02);
+      } catch (e) {}
+    });
+
+    this.activeRhythmNodes = [];
+  }
+
+  // --- ACORDE DE FUNDO CONTÍNUO (PAD) ---
   buildChordFiles(chordStr, phase = 1) {
     const parsed = this.parseChord(chordStr);
     if (!parsed) return [];
@@ -138,13 +194,11 @@ class SampleEngine {
     const intervals = this.getIntervals(parsed.suffix);
     const playlist = [];
 
-    // 1. Baixo grave na Oitava 2
     playlist.push({
       url: `${this.baseUrl}Orgao/${this.getFileName(parsed.bass, 2)}`,
       volume: 1.0
     });
 
-    // 2. Tríade na Oitava 3
     intervals.forEach((interval) => {
       const noteClass = this.chromatic[(rootIdx + interval) % 12];
       playlist.push({
@@ -152,7 +206,6 @@ class SampleEngine {
         volume: 0.85
       });
 
-      // Se estiver na Fase 3 (Cheio), dobra com a Oitava 4
       if (phase === 3) {
         playlist.push({
           url: `${this.baseUrl}Orgao/${this.getFileName(noteClass, 4)}`,
@@ -164,7 +217,6 @@ class SampleEngine {
     return playlist;
   }
 
-  // --- REPRODUÇÃO DO ACORDE (INSTANTÂNEO EM LOOP) ---
   async playChord(chordStr, phase = 1) {
     this.init();
     this.stopChord();
@@ -180,7 +232,7 @@ class SampleEngine {
 
       const source = this.ctx.createBufferSource();
       source.buffer = buffer;
-      source.loop = true; // Mantém o som sustentado
+      source.loop = true;
 
       const gain = this.ctx.createGain();
       gain.gain.setValueAtTime(0, startTime);
@@ -210,7 +262,7 @@ class SampleEngine {
     this.activeChordNodes = [];
   }
 
-  // --- TECLADO DO PIANO ---
+  // --- TECLADO MANUAL ---
   async startPianoKey(noteWithOctave) {
     this.init();
     if (this.activePianoNodes.has(noteWithOctave)) return;
@@ -220,7 +272,6 @@ class SampleEngine {
 
     const note = match[1];
     let oct = parseInt(match[2], 10);
-    // Como a pasta tem oitavas 2, 3 e 4: mapeia oitava 5/6 para 4
     if (oct > 4) oct = 4;
     if (oct < 2) oct = 2;
 
@@ -252,7 +303,7 @@ class SampleEngine {
     try {
       node.gain.gain.cancelScheduledValues(now);
       node.gain.gain.setValueAtTime(node.gain.gain.value, now);
-      node.gain.gain.linearRampToValueAtTime(0.001, now + this.releaseTime);
+      node.gain.linearRampToValueAtTime(0.001, now + this.releaseTime);
       node.source.stop(now + this.releaseTime + 0.05);
     } catch (e) {}
 
@@ -261,6 +312,7 @@ class SampleEngine {
 
   stopAll() {
     this.stopChord();
+    this.stopRhythmNotes();
     for (const key of this.activePianoNodes.keys()) {
       this.stopPianoKey(key);
     }

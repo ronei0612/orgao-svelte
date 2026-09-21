@@ -3,6 +3,7 @@
 
   let { 
     isPlaying = false, 
+    isBlinking = false,
     phase = 1, 
     onTogglePlay, 
     onPhaseChange 
@@ -23,6 +24,7 @@
     type="button"
     class="btn-circle btn-play" 
     class:playing={isPlaying} 
+    class:bpm-blink={isBlinking}
     onclick={onTogglePlay} 
     aria-label="Tocar ou Pausar"
   >
@@ -88,11 +90,7 @@
     justify-content: center;
     color: white;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.3s;
-  }
-
-  .btn-circle:active {
-    transform: scale(0.94);
+    transition: transform 0.1s, box-shadow 0.2s;
   }
 
   .btn-play {
@@ -103,6 +101,13 @@
   .btn-play.playing {
     background-color: #ff6347;
     box-shadow: 0 0 16px 3px rgba(230, 57, 70, 0.6);
+  }
+
+  /* PISCAR DO METRÔNOMO NO COMPASSO */
+  .btn-play.bpm-blink {
+    filter: brightness(1.5);
+    transform: scale(1.08);
+    box-shadow: 0 0 24px 6px rgba(255, 255, 255, 0.9);
   }
 
   .btn-music {

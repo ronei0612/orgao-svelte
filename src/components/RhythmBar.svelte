@@ -1,21 +1,26 @@
 <script>
   let { 
+    rhythms = ['Sem ritmo'], 
+    selectedRhythm = 'Sem ritmo', 
     currentInstrument = 'orgao', 
-    rhythms = ['Sem ritmo', '2/4', '3/4', '4/4', '6/8'], 
+    onRhythmSelect, 
     onInstrumentClick 
   } = $props();
-
-  let selectedRhythm = $state('Sem ritmo');
 </script>
 
 <div class="rhythm-bar">
-  <select class="rhythm-select" bind:value={selectedRhythm} aria-label="Seleção de Ritmo">
+  <select 
+    class="rhythm-select" 
+    value={selectedRhythm} 
+    onchange={(e) => onRhythmSelect(e.target.value)}
+    aria-label="Seleção de Ritmo"
+  >
     {#each rhythms as r}
       <option value={r}>{r}</option>
     {/each}
   </select>
 
-  <button class="instrument-btn" onclick={onInstrumentClick}>
+  <button class="instrument-btn" onclick={onInstrumentClick} title="Alternar Instrumento">
     {currentInstrument === 'piano' ? '🎹 PIANO' : '🎶 ÓRGÃO'}
   </button>
 </div>
@@ -34,6 +39,7 @@
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
   }
 
