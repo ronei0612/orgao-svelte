@@ -1,8 +1,20 @@
+// vite.config.js
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [svelte()],
-  base: './' // <-- Garante que os áudios e assets carreguem no GitHub Pages
-});
+  base: './',
+
+  // ⚠️ ESSA É A CHAVE DA CORREÇÃO:
+  // Força o Svelte 5 a carregar o runtime do navegador (index-client.js) nos testes
+  resolve: {
+    conditions: mode === 'test' ? ['browser'] : []
+  },
+
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./tests/setup.js']
+  }
+}));
