@@ -1,11 +1,18 @@
 <script>
+  /**
+   * src/components/PlaybackControls.svelte
+   * Controles de reprodução: Play/Stop, Fase Harmônica e Navegação (◀ / ▶)
+   */
+
   let { 
     isPlaying = false, 
     isBlinking = false,
     phase = 1, 
     showNav = false,
     onTogglePlay, 
-    onPhaseChange 
+    onPhaseChange,
+    onPrevChord,
+    onNextChord
   } = $props();
 
   function nextPhase() {
@@ -16,8 +23,14 @@
 
 <div class="playback-panel">
   {#if showNav}
-    <button type="button" class="nav-btn" title="Acorde Anterior" aria-label="Acorde Anterior">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <button 
+      type="button" 
+      class="nav-btn" 
+      onclick={onPrevChord}
+      title="Acorde Anterior (Seta Esquerda)" 
+      aria-label="Acorde Anterior"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
       </svg>
     </button>
@@ -30,6 +43,7 @@
     class:bpm-blink={isBlinking}
     onclick={onTogglePlay} 
     aria-label={isPlaying ? "Parar" : "Reproduzir"}
+    title="Reproduzir / Parar (Espaço)"
   >
     {#if isPlaying}
       <span class="icon-stop"></span>
@@ -39,8 +53,14 @@
   </button>
 
   {#if showNav}
-    <button type="button" class="nav-btn" title="Próximo Acorde" aria-label="Próximo Acorde">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <button 
+      type="button" 
+      class="nav-btn" 
+      onclick={onNextChord}
+      title="Próximo Acorde (Seta Direita)" 
+      aria-label="Próximo Acorde"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
       </svg>
     </button>
@@ -77,18 +97,39 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 22px;
-    padding: 2px 0; /* Altura compacta */
+    gap: 20px;
+    padding: 2px 0;
   }
 
   .nav-btn {
     background: none;
     border: none;
-    color: #6c757d;
+    color: var(--app-text);
     cursor: pointer;
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
     padding: 0;
+    opacity: 0.75;
+    transition: all 0.15s ease;
+  }
+
+  .nav-btn:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.08);
+    color: var(--app-teal);
+    transform: scale(1.08);
+  }
+
+  .nav-btn:active {
+    transform: scale(0.92);
+  }
+
+  :global([data-theme="dark"]) .nav-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
   }
 
   .btn-circle {

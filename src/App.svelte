@@ -36,7 +36,7 @@
   let rhythmsList = $state(['Sem ritmo']);
   let selectedRhythm = $state('Sem ritmo');
 
-  // --- ESTADOS DO REPERTÓRIO & DISPLAY ---
+  // --- ESTADOS DO REPERTÓRIO & NAVEGAÇÃO DE CIFRAS ---
   let isEditing = $state(false);
   let songTitle = $state('');
   let editingContent = $state('');
@@ -44,7 +44,11 @@
   let selectedSongId = $state('');
   let songs = $state([]);
 
+  let currentStepIndex = $state(-1);
+  let totalChordSteps = $state(0);
+
   const isLyricsOnly = $derived(currentKey === 'L');
+  const showNav = $derived(!isEditing && selectedSongId !== '' && totalChordSteps > 0 && !isLyricsOnly);
 
   onMount(async () => {
     sampleEngine.preloadAll();
@@ -63,11 +67,31 @@
     };
     window.addEventListener('pointerdown', unlockAudio);
 
-    // Carrega o repertório via DatabaseManager
+    // Atalhos de teclado para músicos (Espaço = Play/Stop, Setas = Anterior/Próximo)
+    function handleKeydown(e) {
+      if (isEditing) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleTogglePlay();
+      } else if (e.key === 'ArrowRight' && showNav) {
+        e.preventDefault();
+        handleNextChord();
+      } else if (e.key === 'ArrowLeft' && showNav) {
+        e.preventDefault();
+        handlePrevChord();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown);
+
     songs = DatabaseManager.getSongs();
     if (songs.length > 0) {
       loadSong(songs[0].id);
     }
+
+    return () => window.removeEventListener('keydown', handleKeydown);
   });
 
   function loadSong(id) {
@@ -75,6 +99,7 @@
     if (!song) {
       selectedSongId = '';
       displayedContent = '';
+      currentStepIndex = -1;
       return;
     }
 
@@ -94,6 +119,7 @@
     }
 
     displayedContent = TextFormatter.prepareContent(song.content);
+    currentStepIndex = 0; // Seleciona a primeira cifra por padrão
   }
 
   function toggleTheme() {
@@ -169,6 +195,65 @@
     }
   }
 
+  // --- NAVEGAÇÃO DE ACORDES (FASE 3) ---
+  function handleNextChord() {
+    if (totalChordSteps === 0) return;
+    currentStepIndex = (currentStepIndex + 1) % totalChordSteps;
+    if (isPlaying && currentPlayingChord) {
+      playChordSound(currentPlayingChord);
+    }
+  }
+
+  function handlePrevChord() {
+    if (totalChordSteps === 0) return;
+    currentStepIndex = currentStepIndex <= 0 ? 0 : currentStepIndex - 1;
+    if (isPlaying && currentPlayingChord) {
+      playChordSound(currentPlayingChord);
+    }
+  }
+
+  function playChordSound(chordName) {
+    currentPlayingChord = chordName;
+    sampleEngine.playChord(chordName, musicPhase);
+    rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
+  }
+
+  // Clique direto em uma cifra do texto
+  function handleDisplayChordClick(chordName, index) {
+    currentStepIndex = index;
+    isPlaying = true;
+    playChordSound(chordName);
+  }
+
+  // Quando o acorde ativo muda (após auto-scroll)
+  function handleActiveChordChange(chordName) {
+    currentPlayingChord = chordName;
+  }
+
+  function handleTogglePlay() {
+    isPlaying = !isPlaying;
+    if (!isPlaying) {
+      sampleEngine.stopAll();
+      rhythmEngine.stop();
+      activeSlot = null;
+    } else {
+      // Se tiver uma música com cifras, toca o acorde atual da seleção
+      if (selectedSongId && totalChordSteps > 0 && currentStepIndex < 0) {
+        currentStepIndex = 0;
+      }
+      activeSlot = activeSlot || 'main-0';
+      const chordToPlay = currentPlayingChord || currentKey;
+      playChordSound(chordToPlay);
+    }
+  }
+
+  // Clique na grade de 11 acordes (modo livre)
+  function handleChordPanelClick(chordName, slotId) {
+    activeSlot = slotId;
+    isPlaying = true;
+    playChordSound(chordName);
+  }
+
   // --- CRUD REPERTÓRIO ---
   function handleAddSong() {
     isEditing = true;
@@ -212,9 +297,9 @@
     };
 
     if (selectedSongId && songs.some((s) => s.id === selectedSongId)) {
-      const updated = DatabaseManager.updateSong(selectedSongId, payload);
+      DatabaseManager.updateSong(selectedSongId, payload);
       songs = DatabaseManager.getSongs();
-      displayedContent = TextFormatter.prepareContent(updated.content);
+      displayedContent = TextFormatter.prepareContent(payload.content);
     } else {
       const created = DatabaseManager.addSong(payload);
       songs = DatabaseManager.getSongs();
@@ -222,6 +307,7 @@
       displayedContent = TextFormatter.prepareContent(created.content);
     }
 
+    currentStepIndex = 0;
     isEditing = false;
   }
 
@@ -234,6 +320,7 @@
       songs = DatabaseManager.deleteSong(selectedSongId);
       selectedSongId = '';
       displayedContent = '';
+      currentStepIndex = -1;
     }
   }
 
@@ -245,48 +332,13 @@
   }
 
   function handleRestoreApp() {
-    if (confirm('⚠️ ATENÇÃO: Isso apagará TODO o repertório salvo e restaurará o estado inicial de fábrica. Deseja continuar?')) {
+    if (confirm('⚠️ ATENÇÃO: Isso apagará TODO o repertório salvo e restaurará os dados de fábrica. Deseja continuar?')) {
       localStorage.clear();
       songs = DatabaseManager.getSongs();
       if (songs.length > 0) {
         loadSong(songs[0].id);
       }
       alert('Aplicativo restaurado com sucesso.');
-    }
-  }
-
-  function handleChordClick(chordName, slotId) {
-    activeSlot = slotId;
-    currentPlayingChord = chordName;
-    isPlaying = true;
-
-    sampleEngine.playChord(chordName, musicPhase);
-    rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
-  }
-
-  function handleDisplayChordClick(chordName, node) {
-    currentPlayingChord = chordName;
-    isPlaying = true;
-
-    document.querySelectorAll('.chord-highlight').forEach((el) => el.classList.remove('chord-highlight'));
-    node.classList.add('chord-highlight');
-
-    sampleEngine.playChord(chordName, musicPhase);
-    rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
-  }
-
-  function handleTogglePlay() {
-    isPlaying = !isPlaying;
-    if (!isPlaying) {
-      sampleEngine.stopAll();
-      rhythmEngine.stop();
-      activeSlot = null;
-      document.querySelectorAll('.chord-highlight').forEach((el) => el.classList.remove('chord-highlight'));
-    } else {
-      activeSlot = activeSlot || 'main-0';
-      const chordToPlay = currentPlayingChord || currentKey;
-      sampleEngine.playChord(chordToPlay, musicPhase);
-      rhythmEngine.triggerChord(chordToPlay, musicPhase, currentBpm);
     }
   }
 </script>
@@ -316,8 +368,11 @@
     content={isEditing ? editingContent : displayedContent}
     {isEditing}
     {isLyricsOnly}
+    activeStepIndex={currentStepIndex}
     onContentChange={(val) => (editingContent = val)}
     onChordClick={handleDisplayChordClick}
+    onStepsCount={(count) => (totalChordSteps = count)}
+    onActiveChordChange={handleActiveChordChange}
   />
 
   <RhythmBar 
@@ -332,15 +387,21 @@
     {isPlaying} 
     {isBlinking}
     phase={musicPhase}
+    {showNav}
     onTogglePlay={handleTogglePlay} 
     onPhaseChange={handlePhaseChange}
+    onPrevChord={handlePrevChord}
+    onNextChord={handleNextChord}
   />
 
-  <ChordPanel 
-    selectedKey={currentKey}
-    {activeSlot} 
-    onChordClick={handleChordClick} 
-  />
+  <!-- Painel de Acordes Livres: ativo quando não há música selecionada -->
+  {#if !selectedSongId}
+    <ChordPanel 
+      selectedKey={currentKey}
+      {activeSlot} 
+      onChordClick={handleChordPanelClick} 
+    />
+  {/if}
 
   <PianoKeyboard 
     onNoteDown={(note) => sampleEngine.startPianoKey(note)}
@@ -357,7 +418,6 @@
     onRestoreApp={handleRestoreApp}
   />
 
-  <!-- Modais de Backup / Repertório -->
   <ExportModal 
     isOpen={isExportModalOpen}
     {songs}
