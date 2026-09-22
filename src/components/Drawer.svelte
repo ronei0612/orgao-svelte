@@ -1,5 +1,5 @@
 <script>
-  import { X, Moon, Sun, BookOpen, Church, Heart, Download, Upload, Terminal, Info, Trash2 } from 'lucide-svelte';
+  import { X, Moon, Sun, BookOpen, Church, Heart, Download, Upload, Info, Trash2 } from 'lucide-svelte';
 
   let { 
     isOpen = false, 
@@ -8,15 +8,15 @@
     onToggleTheme,
     onOpenExport,
     onOpenImport,
-    onRestoreApp
+    onRestoreApp,
+    onSelectView,
+    onOpenAbout
   } = $props();
 </script>
 
 {#if isOpen}
-  <!-- Backdrop escuro de fundo -->
   <div class="backdrop" onclick={onClose} role="presentation"></div>
 
-  <!-- Gaveta Lateral -->
   <aside class="drawer">
     <div class="drawer-header">
       <h3>Menu</h3>
@@ -36,9 +36,17 @@
     <hr class="divider" />
 
     <nav class="drawer-links">
-      <a href="#liturgia" class="link primary" onclick={onClose}><BookOpen size={18} /> Liturgia Diária</a>
-      <a href="#missa" class="link primary" onclick={onClose}><Church size={18} /> Ordinário Santa Missa</a>
-      <a href="#oracoes" class="link primary" onclick={onClose}><Heart size={18} /> Orações</a>
+      <button type="button" class="link primary" onclick={() => { onClose(); onSelectView?.('liturgia'); }}>
+        <BookOpen size={18} /> Liturgia Diária
+      </button>
+
+      <button type="button" class="link primary" onclick={() => { onClose(); onSelectView?.('missa'); }}>
+        <Church size={18} /> Ordinário Santa Missa
+      </button>
+
+      <button type="button" class="link primary" onclick={() => { onClose(); onSelectView?.('oracoes'); }}>
+        <Heart size={18} /> Orações Católicas
+      </button>
 
       <hr class="divider" />
 
@@ -58,8 +66,13 @@
         <Upload size={18} /> Importar Repertório
       </button>
 
-      <button type="button" class="link-btn text-muted"><Terminal size={18} /> Logs do Sistema</button>
-      <button type="button" class="link-btn text-muted"><Info size={18} /> Sobre este site</button>
+      <button 
+        type="button" 
+        class="link-btn text-muted" 
+        onclick={() => { onClose(); onOpenAbout?.(); }}
+      >
+        <Info size={18} /> Sobre este site
+      </button>
 
       <hr class="divider" />
 
@@ -161,7 +174,7 @@
     font-weight: 500;
     background: none;
     border: none;
-    padding: 4px 0;
+    padding: 6px 0;
     cursor: pointer;
     text-align: left;
     width: 100%;

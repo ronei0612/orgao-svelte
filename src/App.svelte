@@ -9,18 +9,24 @@
   import Drawer from './components/Drawer.svelte';
   import ExportModal from './components/ExportModal.svelte';
   import ImportModal from './components/ImportModal.svelte';
+  import AboutModal from './components/AboutModal.svelte';
 
   import { sampleEngine } from './audio/sampleEngine.js';
   import { rhythmEngine } from './audio/rhythmEngine.js';
   import { TextFormatter } from './utils/textFormatter.js';
   import { MusicTheory } from './utils/musicTheory.js';
   import { DatabaseManager } from './utils/databaseManager.js';
+  import { wakeLockController } from './utils/wakeLock.js';
 
-  // --- ESTADOS DO SISTEMA ---
+  // --- ESTADOS DO SISTEMA & MODAIS ---
   let isMenuOpen = $state(false);
   let isDarkMode = $state(false);
   let isExportModalOpen = $state(false);
   let isImportModalOpen = $state(false);
+  let isAboutModalOpen = $state(false);
+
+  // 'song' | 'liturgia' | 'missa' | 'oracoes'
+  let activeTab = $state('song');
 
   let currentKey = $state('C');
   let currentBpm = $state(90);
@@ -36,7 +42,7 @@
   let rhythmsList = $state(['Sem ritmo']);
   let selectedRhythm = $state('Sem ritmo');
 
-  // --- ESTADOS DO REPERTÓRIO & NAVEGAÇÃO DE CIFRAS ---
+  // --- REPERTÓRIO & NAVEGAÇÃO DE CIFRAS ---
   let isEditing = $state(false);
   let songTitle = $state('');
   let editingContent = $state('');
@@ -48,7 +54,10 @@
   let totalChordSteps = $state(0);
 
   const isLyricsOnly = $derived(currentKey === 'L');
-  const showNav = $derived(!isEditing && selectedSongId !== '' && totalChordSteps > 0 && !isLyricsOnly);
+  const showNav = $derived(!isEditing && activeTab === 'song' && selectedSongId !== '' && totalChordSteps > 0 && !isLyricsOnly);
+
+  const currentSong = $derived(songs.find((s) => s.id === selectedSongId));
+  const quickReturnSongTitle = $derived(currentSong ? currentSong.title : '');
 
   onMount(async () => {
     sampleEngine.preloadAll();
@@ -61,11 +70,13 @@
       setTimeout(() => { isBlinking = false; }, 100);
     };
 
-    const unlockAudio = () => {
+    // Desbloqueia áudio e ativa o WakeLock ao primeiro toque na tela
+    const unlockAudioAndWakeLock = () => {
       sampleEngine.init();
-      window.removeEventListener('pointerdown', unlockAudio);
+      wakeLockController.request();
+      window.removeEventListener('pointerdown', unlockAudioAndWakeLock);
     };
-    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('pointerdown', unlockAudioAndWakeLock);
 
     // Atalhos de teclado para músicos (Espaço = Play/Stop, Setas = Anterior/Próximo)
     function handleKeydown(e) {
@@ -104,6 +115,7 @@
     }
 
     selectedSongId = song.id;
+    activeTab = 'song';
     currentKey = song.key || 'C';
     currentBpm = song.bpm || 90;
     rhythmEngine.setBpm(currentBpm);
@@ -119,7 +131,7 @@
     }
 
     displayedContent = TextFormatter.prepareContent(song.content);
-    currentStepIndex = 0; // Seleciona a primeira cifra por padrão
+    currentStepIndex = 0;
   }
 
   function toggleTheme() {
@@ -195,7 +207,7 @@
     }
   }
 
-  // --- NAVEGAÇÃO DE ACORDES (FASE 3) ---
+  // --- NAVEGAÇÃO DE ACORDES ---
   function handleNextChord() {
     if (totalChordSteps === 0) return;
     currentStepIndex = (currentStepIndex + 1) % totalChordSteps;
@@ -218,14 +230,12 @@
     rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
   }
 
-  // Clique direto em uma cifra do texto
   function handleDisplayChordClick(chordName, index) {
     currentStepIndex = index;
     isPlaying = true;
     playChordSound(chordName);
   }
 
-  // Quando o acorde ativo muda (após auto-scroll)
   function handleActiveChordChange(chordName) {
     currentPlayingChord = chordName;
   }
@@ -237,7 +247,6 @@
       rhythmEngine.stop();
       activeSlot = null;
     } else {
-      // Se tiver uma música com cifras, toca o acorde atual da seleção
       if (selectedSongId && totalChordSteps > 0 && currentStepIndex < 0) {
         currentStepIndex = 0;
       }
@@ -247,7 +256,6 @@
     }
   }
 
-  // Clique na grade de 11 acordes (modo livre)
   function handleChordPanelClick(chordName, slotId) {
     activeSlot = slotId;
     isPlaying = true;
@@ -256,6 +264,7 @@
 
   // --- CRUD REPERTÓRIO ---
   function handleAddSong() {
+    activeTab = 'song';
     isEditing = true;
     songTitle = '';
     editingContent = '';
@@ -269,6 +278,7 @@
     const song = songs.find((s) => s.id === selectedSongId);
     if (!song) return;
 
+    activeTab = 'song';
     isEditing = true;
     songTitle = song.title;
     editingContent = song.content;
@@ -287,10 +297,16 @@
       return;
     }
 
+    // Detecção automática de tom se for nova música ou se não tiver tom definido
+    let autoKey = currentKey;
+    if (currentKey === 'C' || !currentKey) {
+      autoKey = MusicTheory.detectKeyFromChords(editingContent);
+    }
+
     const payload = {
       title,
       content: editingContent,
-      key: currentKey,
+      key: autoKey,
       bpm: currentBpm,
       instrument: currentInstrument,
       style: selectedRhythm
@@ -305,6 +321,7 @@
       songs = DatabaseManager.getSongs();
       selectedSongId = created.id;
       displayedContent = TextFormatter.prepareContent(created.content);
+      currentKey = autoKey;
     }
 
     currentStepIndex = 0;
@@ -368,6 +385,9 @@
     content={isEditing ? editingContent : displayedContent}
     {isEditing}
     {isLyricsOnly}
+    {activeTab}
+    {quickReturnSongTitle}
+    onReturnToSong={() => (activeTab = 'song')}
     activeStepIndex={currentStepIndex}
     onContentChange={(val) => (editingContent = val)}
     onChordClick={handleDisplayChordClick}
@@ -394,8 +414,8 @@
     onNextChord={handleNextChord}
   />
 
-  <!-- Painel de Acordes Livres: ativo quando não há música selecionada -->
-  {#if !selectedSongId}
+  <!-- Painel de Acordes Livres: ativo quando não há música selecionada e em modo song -->
+  {#if !selectedSongId && activeTab === 'song'}
     <ChordPanel 
       selectedKey={currentKey}
       {activeSlot} 
@@ -413,8 +433,10 @@
     onClose={() => (isMenuOpen = false)} 
     {isDarkMode} 
     onToggleTheme={toggleTheme}
+    onSelectView={(view) => (activeTab = view)}
     onOpenExport={() => (isExportModalOpen = true)}
     onOpenImport={() => (isImportModalOpen = true)}
+    onOpenAbout={() => (isAboutModalOpen = true)}
     onRestoreApp={handleRestoreApp}
   />
 
@@ -429,5 +451,10 @@
     currentSongs={songs}
     onImportComplete={handleImportComplete}
     onClose={() => (isImportModalOpen = false)}
+  />
+
+  <AboutModal 
+    isOpen={isAboutModalOpen}
+    onClose={() => (isAboutModalOpen = false)}
   />
 </div>
