@@ -4,7 +4,7 @@ import { render, fireEvent } from '@testing-library/svelte';
 import Header from '../src/components/Header.svelte';
 import ChordPanel from '../src/components/ChordPanel.svelte';
 
-describe('Funcionalidade 1: BPM (Controles e Limites)', () => {
+describe('BPM (Controles e Limites)', () => {
   it('deve disparar os passos de -5, -1 e +5 BPM corretamente', async () => {
     const handleBpmChange = vi.fn();
 
@@ -36,7 +36,7 @@ describe('Funcionalidade 1: BPM (Controles e Limites)', () => {
   });
 });
 
-describe('Funcionalidade 2: Tom e Atualização do ChordPanel', () => {
+describe('Tom e Atualização do ChordPanel', () => {
   it('deve navegar pelos tons ao clicar em + e - no Header', async () => {
     const handleKeyChange = vi.fn();
 

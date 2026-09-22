@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { rhythmEngine } from '../src/audio/rhythmEngine.js';
 import { sampleEngine } from '../src/audio/sampleEngine.js';
 
-describe('Funcionalidade 3: Melody (Sequenciador One-Shot de 5 Vozes)', () => {
+describe('Melody (Sequenciador One-Shot de 5 Vozes)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     sampleEngine.init();
@@ -51,7 +51,7 @@ describe('Funcionalidade 3: Melody (Sequenciador One-Shot de 5 Vozes)', () => {
   });
 });
 
-describe('Funcionalidade 4: Seleção de Ritmos', () => {
+describe('Seleção de Ritmos', () => {
   it('a lista de ritmos DEVE ter "Sem ritmo" como primeiro item e os demais ordenados naturalmente', () => {
     const list = rhythmEngine.getRhythmsList();
 

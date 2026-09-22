@@ -5,7 +5,7 @@ import PlaybackControls from '../src/components/PlaybackControls.svelte';
 import { sampleEngine } from '../src/audio/sampleEngine.js';
 import { rhythmEngine } from '../src/audio/rhythmEngine.js';
 
-describe('Funcionalidade 5: Botão Play, Stop e Fase Harmônica', () => {
+describe('Botão Play, Stop e Fase Harmônica', () => {
   it('deve alternar entre estado Parado (azul) e Tocando (coral/vermelho)', async () => {
     const handleToggle = vi.fn();
 
