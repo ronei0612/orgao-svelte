@@ -11,13 +11,11 @@
   import { sampleEngine } from './audio/sampleEngine.js';
   import { rhythmEngine } from './audio/rhythmEngine.js';
 
-  // Estados reativos (Svelte 5 Runes)
   let isMenuOpen = $state(false);
   let isDarkMode = $state(false);
   let currentKey = $state('C');
   let currentBpm = $state(90);
 
-  // activeSlot guarda o botão que está tocando (permanece afundado com aura mesmo mudando o Tom no topo)
   let activeSlot = $state(null);
   let currentPlayingChord = $state('C');
 
@@ -52,7 +50,6 @@
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }
 
-  // MUDAR O TOM NÃO TROCA O SOM QUE ESTÁ SOANDO! O som continua o mesmo até clicar num novo acorde.
   function handleKeyChange(newVal) {
     if (typeof newVal === 'number') {
       const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -66,12 +63,19 @@
     }
   }
 
-  function handleBpmChange(val) {
-    currentBpm = Math.max(30, Math.min(300, currentBpm + val));
+  // Ajuste do BPM via botões (-5, -1, +5)
+  function handleBpmChange(delta) {
+    currentBpm = Math.max(30, Math.min(300, currentBpm + delta));
     rhythmEngine.setBpm(currentBpm);
   }
 
-  // MUDAR A FASE NÃO TROCA O SOM INSTANTANEAMENTE: o som só mudará no PRÓXIMO acorde tocado!
+  // Ajuste do BPM digitado diretamente no input
+  function handleBpmSet(val) {
+    if (isNaN(val) || val <= 0) return;
+    currentBpm = Math.max(30, Math.min(300, val));
+    rhythmEngine.setBpm(currentBpm);
+  }
+
   function handlePhaseChange(nextPhase) {
     musicPhase = nextPhase;
     rhythmEngine.setPhase(musicPhase);
@@ -93,12 +97,12 @@
     }
   }
 
-  // DISPARO DE ACORDE: Salva o slot e o acorde sonoro
   function handleChordClick(chordName, slotId) {
     activeSlot = slotId;
     currentPlayingChord = chordName;
     isPlaying = true;
 
+    // Fundo contínuo (pad) sustenta; ritmo melódico toca exatamente 1 compasso
     sampleEngine.playChord(chordName, musicPhase);
     rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
   }
@@ -110,7 +114,6 @@
       rhythmEngine.stop();
       activeSlot = null;
     } else {
-      // Se der play sem acorde prévio, ativa a tônica (slot main-0)
       activeSlot = activeSlot || 'main-0';
       const chordToPlay = currentPlayingChord || currentKey;
       sampleEngine.playChord(chordToPlay, musicPhase);
@@ -120,13 +123,13 @@
 </script>
 
 <div class="app-container">
-  <!-- Header com layout e espaçamento fiel aos Prints 1 e 2 -->
   <Header 
     onOpenMenu={() => (isMenuOpen = true)}
     selectedKey={currentKey}
     bpm={currentBpm}
     onKeyChange={handleKeyChange}
     onBpmChange={handleBpmChange}
+    onBpmSet={handleBpmSet}
   />
 
   <MainDisplay />
@@ -147,7 +150,6 @@
     onPhaseChange={handlePhaseChange}
   />
 
-  <!-- Painel de Acordes onde o botão ativo permanece aceso ao mudar o Tom -->
   <ChordPanel 
     selectedKey={currentKey}
     activeSlot={activeSlot} 

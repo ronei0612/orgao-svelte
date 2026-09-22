@@ -10,6 +10,7 @@
     selectedSongId = '',
     onKeyChange, 
     onBpmChange,
+    onBpmSet,
     onSongChange,
     onAddSong,
     onEditSong,
@@ -21,7 +22,6 @@
   const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B', 'L'];
   let showActions = $state(false);
 
-  // Fecha as ações automaticamente se o usuário clicar fora do grupo de música
   $effect(() => {
     if (!showActions) return;
 
@@ -35,13 +35,11 @@
 </script>
 
 <header class="header-toolbar">
-  <!-- Linha 1: Menu + Grupo do Tom + Grupo do BPM (Prints 1 e 2) -->
   <div class="left-cluster">
     <button type="button" class="btn-menu" onclick={onOpenMenu} title="Menu Principal" aria-label="Menu">
       <Menu size={22} />
     </button>
 
-    <!-- Seletor de Tom: Botões - e + do mesmo tamanho do + da música (46px) -->
     <div class="input-group group-key">
       <button 
         type="button" 
@@ -76,7 +74,6 @@
       </button>
     </div>
 
-    <!-- Seletor de BPM: Botões ampliados (-5, -, input, +5) -->
     <div class="input-group group-bpm">
       <button 
         type="button" 
@@ -98,9 +95,9 @@
         type="number" 
         class="bpm-input" 
         value={bpm} 
-        onchange={(e) => onBpmChange(Number(e.target.value))}
-        min="1" 
-        max="999" 
+        oninput={(e) => { if (onBpmSet) onBpmSet(Number(e.target.value)); }}
+        min="30" 
+        max="300" 
         aria-label="BPM"
       />
       <button 
@@ -114,7 +111,6 @@
     </div>
   </div>
 
-  <!-- Linha 2 no Celular / Continuação no PC: Seleção de Música e Ações (Print 2) -->
   <div 
     class="right-cluster" 
     onclick={(e) => e.stopPropagation()} 
@@ -144,7 +140,6 @@
         </div>
 
         {#if !showActions}
-          <!-- Botão "+" de Ações (mesmo tamanho dos botões - e + do tom: 46px) -->
           <button 
             type="button" 
             class="btn-teal btn-action-toggle" 
@@ -158,7 +153,6 @@
             <Plus size={18} strokeWidth={2.5} />
           </button>
         {:else}
-          <!-- Botões Extras Colados no Select (Adicionar, Editar e Excluir) -->
           <button 
             type="button" 
             class="btn-action btn-add" 
@@ -190,9 +184,6 @@
 </header>
 
 <style>
-  /* TOOLBAR RESPONSIVA CONFORME PRINTS:
-     - No Desktop: tudo em uma linha contínua.
-     - No Celular (< 680px): quebra para 2 linhas com gap vertical limpo de 4px. */
   .header-toolbar {
     display: flex;
     align-items: center;
@@ -214,7 +205,6 @@
     display: flex;
   }
 
-  /* Ajuste no celular: quebra para 100% de largura com espaçamento de 4px */
   @media (max-width: 680px) {
     .left-cluster {
       width: 100%;
@@ -223,6 +213,7 @@
     .right-cluster {
       width: 100%;
       flex: 1 1 100%;
+      margin-top: 4px;
     }
   }
 
@@ -238,7 +229,6 @@
     height: 38px;
   }
 
-  /* INPUT-GROUPS COM ALTURA 38px */
   .input-group {
     display: flex;
     height: 38px;
@@ -268,7 +258,6 @@
     background-color: var(--app-teal-hover);
   }
 
-  /* LARGURAS DOS BOTÕES DO TOM E DO "+" DA MÚSICA IDENTICAS (46px) */
   .btn-step {
     width: 46px;
   }
@@ -277,7 +266,6 @@
     width: 46px;
   }
 
-  /* BOTÕES DO BPM AMPLIADOS */
   .btn-bpm-step {
     width: 38px;
     font-size: 13px;
@@ -292,7 +280,6 @@
     border-left: 1px solid rgba(255, 255, 255, 0.3);
   }
 
-  /* ENVOLTÓRIO DO SELECT COM SETA CHEVRON */
   .select-wrapper {
     position: relative;
     display: flex;
@@ -362,7 +349,6 @@
     -webkit-appearance: none;
   }
 
-  /* BOTÕES EXTRAS (ADICIONAR, EDITAR, EXCLUIR) */
   .btn-action {
     border: none;
     color: #ffffff;
@@ -375,9 +361,9 @@
   }
 
   .btn-action:hover { filter: brightness(0.9); }
-  .btn-add { background-color: #198754; }    /* Verde */
-  .btn-edit { background-color: #0dcaf0; }   /* Ciano */
-  .btn-delete { background-color: #dc3545; } /* Vermelho */
+  .btn-add { background-color: #198754; }
+  .btn-edit { background-color: #0dcaf0; }
+  .btn-delete { background-color: #dc3545; }
   .btn-save { background-color: #0d6efd; width: 44px; }
   .btn-cancel { background-color: #6c757d; width: 44px; }
 </style>

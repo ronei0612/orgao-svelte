@@ -1,6 +1,8 @@
 /**
  * src/audio/rhythmEngine.js
- * Sequenciador rítmico melódico de 5 vozes com ordenação alfabética e troca de fase no próximo acorde.
+ * Sequenciador rítmico melódico de 5 vozes:
+ * - Execução ONE-SHOT (sem loop infinito no ritmo: toca 1 compasso por acorde)
+ * - Metrônomo contínuo sincronizado ao BPM
  */
 
 import { sampleEngine } from './sampleEngine.js';
@@ -17,16 +19,20 @@ class RhythmEngine {
     this.phase = 1;
     this.currentChord = null;
 
-    this.isPlaying = false;
+    this.isPlaying = false;       // Sessão de reprodução / metrônomo ativa
+    this.isPlayingRhythm = false; // Execução do compasso rítmico ativa
     this.currentStep = 0;
     this.nextStepTime = 0;
     this.nextBlinkTime = 0;
-    this.timerId = null;
 
     this.currentVoicesFiles = {};
 
     this.onStepChange = null;
     this.onMetronomeTick = null;
+
+    // Loop contínuo de alta precisão
+    this.loopBound = this.engineLoop.bind(this);
+    requestAnimationFrame(this.loopBound);
   }
 
   async init() {
@@ -56,7 +62,6 @@ class RhythmEngine {
     this.bpm = Math.max(30, Math.min(300, Number(newBpm) || 90));
   }
 
-  // Apenas armazena a nova fase. O som NÃO muda no meio do compasso, só no próximo triggerChord!
   setPhase(newPhase) {
     this.phase = newPhase;
   }
@@ -65,7 +70,6 @@ class RhythmEngine {
     if (this.currentInstrument === inst) return;
     this.currentInstrument = inst;
     await this.audio.preloadStudio(inst);
-
     this.setRhythm(this.currentRhythmName);
   }
 
@@ -139,6 +143,7 @@ class RhythmEngine {
     return files;
   }
 
+  // Dispara o compasso melódico do acorde
   triggerChord(chordStr, phase = null, bpm = null) {
     if (phase !== null) this.phase = phase;
     if (bpm !== null) this.bpm = bpm;
@@ -150,35 +155,33 @@ class RhythmEngine {
 
     this.audio.init();
     this.currentChord = chordStr;
-    // Aqui sim aplica a fase ativa ao disparar o novo acorde
     this.currentVoicesFiles = this.calculateVoiceFiles(chordStr, this.phase);
 
     this.audio.stopRhythmNotes();
 
+    const now = this.audio.ctx.currentTime;
     this.currentStep = 0;
-    this.nextStepTime = this.audio.ctx.currentTime + 0.02;
-    this.nextBlinkTime = this.audio.ctx.currentTime;
+    this.nextStepTime = now + 0.02;
+    this.isPlayingRhythm = true; // Inicia a execução do compasso (1 ciclo)
     this.isPlaying = true;
-
-    if (!this.timerId) {
-      this.startScheduler();
-    }
   }
 
-  startScheduler() {
-    const lookahead = 0.08;
+  engineLoop() {
+    const now = this.audio.ctx ? this.audio.ctx.currentTime : 0;
+    const beatDuration = 60.0 / this.bpm; // Pulso do metrônomo (Semínima)
+    const stepDuration = beatDuration / 2; // Subdivisão do ritmo (Colcheia)
 
-    const scheduler = () => {
-      if (!this.isPlaying) return;
-
-      const now = this.audio.ctx.currentTime;
-      const beatDuration = 60.0 / this.bpm;
-      const stepDuration = beatDuration / 2;
-
+    // 1. METRÔNOMO: pisca no andamento do BPM enquanto o Play estiver ativo
+    if (this.isPlaying && this.currentRhythmName !== 'Sem ritmo') {
       if (now >= this.nextBlinkTime) {
-        this.nextBlinkTime += beatDuration;
+        this.nextBlinkTime = now + beatDuration;
         if (this.onMetronomeTick) this.onMetronomeTick();
       }
+    }
+
+    // 2. MELODIA RÍTMICA: NÃO É LOOP (toca apenas 1 compasso a cada acorde)
+    if (this.isPlayingRhythm && this.currentVoicesFiles && this.activeRhythmData) {
+      const lookahead = 0.08;
 
       while (this.nextStepTime < now + lookahead) {
         this.scheduleStep(this.currentStep, this.nextStepTime);
@@ -187,22 +190,29 @@ class RhythmEngine {
           const stepToNotify = this.currentStep;
           const delay = Math.max(0, (this.nextStepTime - now) * 1000);
           setTimeout(() => {
-            if (this.isPlaying && this.onStepChange) this.onStepChange(stepToNotify);
+            if (this.onStepChange) this.onStepChange(stepToNotify);
           }, delay);
         }
 
         this.nextStepTime += stepDuration;
         this.currentStep++;
 
+        // FIM DO COMPASSO: desativa o ritmo ao terminar todos os steps (SEM LOOP)
         if (this.currentStep >= this.activeRhythmData.numSteps) {
-          this.currentStep = 0;
+          this.isPlayingRhythm = false;
+
+          const endDelay = Math.max(0, (this.nextStepTime - now) * 1000);
+          setTimeout(() => {
+            if (!this.isPlayingRhythm && this.onStepChange) {
+              this.onStepChange(-1);
+            }
+          }, endDelay);
+          break;
         }
       }
+    }
 
-      this.timerId = requestAnimationFrame(scheduler);
-    };
-
-    scheduler();
+    requestAnimationFrame(this.loopBound);
   }
 
   scheduleStep(stepIdx, time) {
@@ -223,10 +233,7 @@ class RhythmEngine {
 
   stop() {
     this.isPlaying = false;
-    if (this.timerId) {
-      cancelAnimationFrame(this.timerId);
-      this.timerId = null;
-    }
+    this.isPlayingRhythm = false;
     this.audio.stopRhythmNotes();
     this.currentStep = 0;
     if (this.onStepChange) this.onStepChange(-1);
