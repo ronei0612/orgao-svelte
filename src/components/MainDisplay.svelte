@@ -1,8 +1,11 @@
 <script>
   /**
    * src/components/MainDisplay.svelte
-   * Display principal com suporte a Leitura, Edição (contenteditable),
-   * colagem limpa (apenas texto puro) e Modo Letra.
+   * Display com contenteditable blindado via Svelte Action:
+   * - O innerHTML só é populado no momento da montagem (sem feedback loop).
+   * - O cursor não pula para o início ao digitar.
+   * - Colagem com higienização (apenas texto puro).
+   * - Modo Letra e clique nos acordes <b> em modo leitura.
    */
 
   let { 
@@ -15,15 +18,43 @@
 
   let editorEl = $state(null);
 
-  // Carrega o conteúdo inicial para edição quando entrar em modo de edição
-  $effect(() => {
-    if (isEditing && editorEl) {
-      editorEl.innerHTML = content || '';
-      editorEl.focus();
+  /**
+   * Posiciona o cursor (caret) no final do texto ao abrir o editor
+   */
+  function placeCaretAtEnd(el) {
+    if (!el) return;
+    el.focus();
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false); // false = colapsa para o final
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } catch (err) {
+      // Fallback silencioso caso a seleção falhe
     }
-  });
+  }
 
-  // Intercepta a colagem para garantir apenas texto puro (sem formatação externa suja)
+  /**
+   * SVELTE ACTION: Executada APENAS UMA VEZ quando a div de edição entra no DOM.
+   * Nunca reescreve o innerHTML enquanto o usuário está digitando!
+   */
+  function setupEditor(node) {
+    editorEl = node;
+    node.innerHTML = content || '';
+    placeCaretAtEnd(node);
+
+    return {
+      destroy() {
+        editorEl = null;
+      }
+    };
+  }
+
+  // Intercepta colagem: extrai apenas texto puro para não herdar formatação suja da web
   function handlePaste(e) {
     e.preventDefault();
     const clipboardData = e.clipboardData || window.clipboardData;
@@ -37,7 +68,8 @@
       const selection = window.getSelection();
       if (!selection.rangeCount) return;
       selection.deleteFromDocument();
-      selection.getRangeAt(0).insertNode(document.createTextNode(text));
+      const textNode = document.createTextNode(text);
+      selection.getRangeAt(0).insertNode(textNode);
       selection.collapseToEnd();
     }
 
@@ -46,13 +78,14 @@
     }
   }
 
+  // Apenas notifica o componente pai sobre a digitação, sem alterar o DOM local
   function handleInput() {
     if (onContentChange && editorEl) {
       onContentChange(editorEl.innerHTML);
     }
   }
 
-  // Delegação de clique nas cifras durante o modo de visualização
+  // Clique em acordes durante a leitura
   function handleViewClick(e) {
     if (isEditing) return;
     const chordNode = e.target.closest('b, strong');
@@ -63,12 +96,12 @@
 </script>
 
 {#if isEditing}
-  <!-- Modo Edição: contenteditable ativo e limpo -->
+  <!-- Modo Edição: usa use:setupEditor para inicialização única e estável -->
   <div 
-    bind:this={editorEl}
     class="display-container editing"
     contenteditable="true"
     spellcheck="false"
+    use:setupEditor
     onpaste={handlePaste}
     oninput={handleInput}
     data-placeholder="Cole ou digite aqui a letra com as cifras..."
@@ -77,7 +110,7 @@
     aria-label="Editor de Cifras"
   ></div>
 {:else if content}
-  <!-- Modo Visualização: HTML interativo -->
+  <!-- Modo Leitura / Visualização -->
   <div 
     class="display-container" 
     class:lyrics-only={isLyricsOnly}
@@ -116,7 +149,7 @@
     transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
-  /* Modo de Edição */
+  /* Modo Edição */
   .display-container.editing {
     background-color: var(--app-surface);
     border-color: #0d6efd;
@@ -132,7 +165,7 @@
     pointer-events: none;
   }
 
-  /* Estilização das Cifras (tags <b> geradas automaticamente) */
+  /* Acordes em negrito gerados automaticamente */
   :global(.display-container b),
   :global(.display-container strong) {
     color: var(--app-teal);
@@ -152,7 +185,7 @@
     color: #20c997;
   }
 
-  /* Destaque do Acorde Ativo durante execução */
+  /* Destaque do acorde tocando */
   :global(.display-container .chord-highlight) {
     background-color: #ffeb3b !important;
     color: #000000 !important;
@@ -172,12 +205,12 @@
     font-family: 'Roboto', sans-serif;
     font-size: 16px;
     line-height: 1.6;
-    padding-bottom: 220px; /* Espaço para leitura confortável até o final */
+    padding-bottom: 220px;
   }
 
   .display-container.lyrics-only :global(b),
   .display-container.lyrics-only :global(strong) {
-    display: none !important; /* Oculta completamente as cifras */
+    display: none !important;
   }
 
   .empty-container {
