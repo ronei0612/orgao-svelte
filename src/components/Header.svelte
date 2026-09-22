@@ -8,10 +8,12 @@
     isEditing = false,
     songs = [],
     selectedSongId = '',
+    songTitle = '',
     onKeyChange, 
     onBpmChange,
     onBpmSet,
     onSongChange,
+    onTitleChange,
     onAddSong,
     onEditSong,
     onDeleteSong,
@@ -118,7 +120,18 @@
   >
     {#if isEditing}
       <div class="input-group song-group">
-        <input type="text" class="song-input" placeholder="Título da música..." />
+        <input 
+          type="text" 
+          class="song-input" 
+          placeholder="Título da música..." 
+          value={songTitle}
+          oninput={(e) => onTitleChange?.(e.target.value)}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') onSaveSong?.();
+            if (e.key === 'Escape') onCancelEdit?.();
+          }}
+          aria-label="Título da Música"
+        />
         <button type="button" class="btn-action btn-save" onclick={onSaveSong} title="Salvar"><Save size={18} /></button>
         <button type="button" class="btn-action btn-cancel" onclick={onCancelEdit} title="Cancelar"><X size={18} /></button>
       </div>
@@ -156,7 +169,11 @@
           <button 
             type="button" 
             class="btn-action btn-add" 
-            onclick={(e) => { e.stopPropagation(); if (onAddSong) onAddSong(); }} 
+            onclick={(e) => { 
+              e.stopPropagation(); 
+              showActions = false; 
+              if (onAddSong) onAddSong(); 
+            }} 
             title="Adicionar Música"
           >
             <FilePlus size={17} />
@@ -164,7 +181,11 @@
           <button 
             type="button" 
             class="btn-action btn-edit" 
-            onclick={(e) => { e.stopPropagation(); if (onEditSong) onEditSong(); }} 
+            onclick={(e) => { 
+              e.stopPropagation(); 
+              showActions = false; 
+              if (onEditSong) onEditSong(); 
+            }} 
             title="Editar Música"
           >
             <Edit size={17} />
@@ -172,7 +193,11 @@
           <button 
             type="button" 
             class="btn-action btn-delete" 
-            onclick={(e) => { e.stopPropagation(); if (onDeleteSong) onDeleteSong(); }} 
+            onclick={(e) => { 
+              e.stopPropagation(); 
+              showActions = false; 
+              if (onDeleteSong) onDeleteSong(); 
+            }} 
             title="Excluir Música"
           >
             <Trash2 size={17} />
@@ -258,11 +283,7 @@
     background-color: var(--app-teal-hover);
   }
 
-  .btn-step {
-    width: 46px;
-  }
-
-  .btn-action-toggle {
+  .btn-step, .btn-action-toggle {
     width: 46px;
   }
 
@@ -347,6 +368,11 @@
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
+  }
+
+  .song-input {
+    cursor: text;
+    padding: 0 12px;
   }
 
   .btn-action {
