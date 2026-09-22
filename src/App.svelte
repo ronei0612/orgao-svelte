@@ -7,15 +7,21 @@
   import ChordPanel from './components/ChordPanel.svelte';
   import PianoKeyboard from './components/PianoKeyboard.svelte';
   import Drawer from './components/Drawer.svelte';
+  import ExportModal from './components/ExportModal.svelte';
+  import ImportModal from './components/ImportModal.svelte';
 
   import { sampleEngine } from './audio/sampleEngine.js';
   import { rhythmEngine } from './audio/rhythmEngine.js';
   import { TextFormatter } from './utils/textFormatter.js';
   import { MusicTheory } from './utils/musicTheory.js';
+  import { DatabaseManager } from './utils/databaseManager.js';
 
   // --- ESTADOS DO SISTEMA ---
   let isMenuOpen = $state(false);
   let isDarkMode = $state(false);
+  let isExportModalOpen = $state(false);
+  let isImportModalOpen = $state(false);
+
   let currentKey = $state('C');
   let currentBpm = $state(90);
 
@@ -40,30 +46,6 @@
 
   const isLyricsOnly = $derived(currentKey === 'L');
 
-  // Músicas iniciais caso o usuário nunca tenha salvo nada
-  const defaultSongs = [
-    {
-      id: 'demo-1',
-      title: 'Segura na Mão de Deus',
-      content: `G              D
-Segura na mão de Deus
-C              G
-Segura na mão de Deus
-               D
-Pois ela te sustentará
-G              D
-Não temas, segue adiante
-C              G
-E não olhes para trás
-               D     G
-Segura na mão de Deus e vai`,
-      key: 'G',
-      bpm: 85,
-      instrument: 'orgao',
-      style: '4/4'
-    }
-  ];
-
   onMount(async () => {
     sampleEngine.preloadAll();
 
@@ -81,28 +63,12 @@ Segura na mão de Deus e vai`,
     };
     window.addEventListener('pointerdown', unlockAudio);
 
-    // Carrega o repertório do localStorage
-    const saved = localStorage.getItem('songs');
-    if (saved) {
-      try {
-        songs = JSON.parse(saved);
-      } catch (e) {
-        songs = defaultSongs;
-      }
-    } else {
-      songs = defaultSongs;
-      localStorage.setItem('songs', JSON.stringify(songs));
-    }
-
-    // Carrega a primeira música por padrão se existir
+    // Carrega o repertório via DatabaseManager
+    songs = DatabaseManager.getSongs();
     if (songs.length > 0) {
       loadSong(songs[0].id);
     }
   });
-
-  function saveSongsToStorage() {
-    localStorage.setItem('songs', JSON.stringify(songs));
-  }
 
   function loadSong(id) {
     const song = songs.find((s) => s.id === id);
@@ -127,7 +93,6 @@ Segura na mão de Deus e vai`,
       rhythmEngine.setRhythm(song.style);
     }
 
-    // Formata os acordes em negrito <b>
     displayedContent = TextFormatter.prepareContent(song.content);
   }
 
@@ -136,7 +101,6 @@ Segura na mão de Deus e vai`,
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }
 
-  // Mudança de tom com transposição dinâmica do texto no display
   function handleKeyChange(newVal) {
     const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
@@ -145,7 +109,6 @@ Segura na mão de Deus e vai`,
       const idx = keys.indexOf(currentKey);
       if (idx !== -1) {
         const nextIdx = (idx + newVal + 12) % 12;
-        const oldKey = currentKey;
         currentKey = keys[nextIdx];
         transposeDisplayedSong(newVal);
       }
@@ -206,7 +169,7 @@ Segura na mão de Deus e vai`,
     }
   }
 
-  // --- AÇÕES DO REPERTÓRIO (ADD, EDIT, SAVE, DELETE) ---
+  // --- CRUD REPERTÓRIO ---
   function handleAddSong() {
     isEditing = true;
     songTitle = '';
@@ -223,7 +186,6 @@ Segura na mão de Deus e vai`,
 
     isEditing = true;
     songTitle = song.title;
-    // Carrega o conteúdo no editor
     editingContent = song.content;
   }
 
@@ -240,43 +202,26 @@ Segura na mão de Deus e vai`,
       return;
     }
 
-    // Processa a digitação/colagem e envelopa as cifras com <b>
-    const formatted = TextFormatter.prepareContent(editingContent);
+    const payload = {
+      title,
+      content: editingContent,
+      key: currentKey,
+      bpm: currentBpm,
+      instrument: currentInstrument,
+      style: selectedRhythm
+    };
 
     if (selectedSongId && songs.some((s) => s.id === selectedSongId)) {
-      // Atualiza música existente
-      songs = songs.map((s) => {
-        if (s.id === selectedSongId) {
-          return {
-            ...s,
-            title,
-            content: editingContent,
-            key: currentKey,
-            bpm: currentBpm,
-            instrument: currentInstrument,
-            style: selectedRhythm
-          };
-        }
-        return s;
-      });
+      const updated = DatabaseManager.updateSong(selectedSongId, payload);
+      songs = DatabaseManager.getSongs();
+      displayedContent = TextFormatter.prepareContent(updated.content);
     } else {
-      // Cria nova música
-      const newId = 'song-' + Date.now();
-      const newSong = {
-        id: newId,
-        title,
-        content: editingContent,
-        key: currentKey,
-        bpm: currentBpm,
-        instrument: currentInstrument,
-        style: selectedRhythm
-      };
-      songs = [...songs, newSong];
-      selectedSongId = newId;
+      const created = DatabaseManager.addSong(payload);
+      songs = DatabaseManager.getSongs();
+      selectedSongId = created.id;
+      displayedContent = TextFormatter.prepareContent(created.content);
     }
 
-    saveSongsToStorage();
-    displayedContent = formatted;
     isEditing = false;
   }
 
@@ -286,10 +231,27 @@ Segura na mão de Deus e vai`,
     if (!song) return;
 
     if (confirm(`Deseja excluir a música "${song.title}"?`)) {
-      songs = songs.filter((s) => s.id !== selectedSongId);
-      saveSongsToStorage();
+      songs = DatabaseManager.deleteSong(selectedSongId);
       selectedSongId = '';
       displayedContent = '';
+    }
+  }
+
+  function handleImportComplete(newSongsList) {
+    songs = newSongsList;
+    if (songs.length > 0) {
+      loadSong(songs[songs.length - 1].id);
+    }
+  }
+
+  function handleRestoreApp() {
+    if (confirm('⚠️ ATENÇÃO: Isso apagará TODO o repertório salvo e restaurará o estado inicial de fábrica. Deseja continuar?')) {
+      localStorage.clear();
+      songs = DatabaseManager.getSongs();
+      if (songs.length > 0) {
+        loadSong(songs[0].id);
+      }
+      alert('Aplicativo restaurado com sucesso.');
     }
   }
 
@@ -302,12 +264,10 @@ Segura na mão de Deus e vai`,
     rhythmEngine.triggerChord(chordName, musicPhase, currentBpm);
   }
 
-  // Clique em uma cifra dentro do texto no MainDisplay
   function handleDisplayChordClick(chordName, node) {
     currentPlayingChord = chordName;
     isPlaying = true;
 
-    // Remove destaque anterior e aplica na cifra clicada
     document.querySelectorAll('.chord-highlight').forEach((el) => el.classList.remove('chord-highlight'));
     node.classList.add('chord-highlight');
 
@@ -391,6 +351,23 @@ Segura na mão de Deus e vai`,
     isOpen={isMenuOpen} 
     onClose={() => (isMenuOpen = false)} 
     {isDarkMode} 
-    onToggleTheme={toggleTheme} 
+    onToggleTheme={toggleTheme}
+    onOpenExport={() => (isExportModalOpen = true)}
+    onOpenImport={() => (isImportModalOpen = true)}
+    onRestoreApp={handleRestoreApp}
+  />
+
+  <!-- Modais de Backup / Repertório -->
+  <ExportModal 
+    isOpen={isExportModalOpen}
+    {songs}
+    onClose={() => (isExportModalOpen = false)}
+  />
+
+  <ImportModal 
+    isOpen={isImportModalOpen}
+    currentSongs={songs}
+    onImportComplete={handleImportComplete}
+    onClose={() => (isImportModalOpen = false)}
   />
 </div>

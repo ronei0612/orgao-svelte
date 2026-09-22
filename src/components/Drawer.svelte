@@ -1,7 +1,15 @@
 <script>
   import { X, Moon, Sun, BookOpen, Church, Heart, Download, Upload, Terminal, Info, Trash2 } from 'lucide-svelte';
 
-  let { isOpen = false, onClose, isDarkMode = false, onToggleTheme } = $props();
+  let { 
+    isOpen = false, 
+    onClose, 
+    isDarkMode = false, 
+    onToggleTheme,
+    onOpenExport,
+    onOpenImport,
+    onRestoreApp
+  } = $props();
 </script>
 
 {#if isOpen}
@@ -28,21 +36,40 @@
     <hr class="divider" />
 
     <nav class="drawer-links">
-      <a href="#liturgia" class="link primary"><BookOpen size={18} /> Liturgia Diária</a>
-      <a href="#missa" class="link primary"><Church size={18} /> Ordinário Santa Missa</a>
-      <a href="#oracoes" class="link primary"><Heart size={18} /> Orações</a>
+      <a href="#liturgia" class="link primary" onclick={onClose}><BookOpen size={18} /> Liturgia Diária</a>
+      <a href="#missa" class="link primary" onclick={onClose}><Church size={18} /> Ordinário Santa Missa</a>
+      <a href="#oracoes" class="link primary" onclick={onClose}><Heart size={18} /> Orações</a>
 
       <hr class="divider" />
 
-      <button class="link-btn"><Download size={18} /> Exportar Repertório</button>
-      <button class="link-btn"><Upload size={18} /> Importar Repertório</button>
+      <button 
+        type="button" 
+        class="link-btn" 
+        onclick={() => { onClose(); onOpenExport?.(); }}
+      >
+        <Download size={18} /> Exportar Repertório
+      </button>
 
-      <button class="link-btn text-muted"><Terminal size={18} /> Logs do Sistema</button>
-      <button class="link-btn text-muted"><Info size={18} /> Sobre este site</button>
+      <button 
+        type="button" 
+        class="link-btn" 
+        onclick={() => { onClose(); onOpenImport?.(); }}
+      >
+        <Upload size={18} /> Importar Repertório
+      </button>
+
+      <button type="button" class="link-btn text-muted"><Terminal size={18} /> Logs do Sistema</button>
+      <button type="button" class="link-btn text-muted"><Info size={18} /> Sobre este site</button>
 
       <hr class="divider" />
 
-      <button class="link-btn text-danger"><Trash2 size={18} /> Restaurar Aplicativo</button>
+      <button 
+        type="button" 
+        class="link-btn text-danger" 
+        onclick={() => { onClose(); onRestoreApp?.(); }}
+      >
+        <Trash2 size={18} /> Restaurar Aplicativo
+      </button>
     </nav>
   </aside>
 {/if}
@@ -89,6 +116,9 @@
     border: none;
     color: var(--app-text);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .theme-toggle-row {
@@ -134,6 +164,7 @@
     padding: 4px 0;
     cursor: pointer;
     text-align: left;
+    width: 100%;
   }
 
   .link.primary { color: var(--app-teal); font-weight: bold; }
