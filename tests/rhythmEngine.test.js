@@ -123,14 +123,21 @@ describe('Melody (Sequenciador One-Shot de 5 Vozes)', () => {
   it('rhythmEngine.stop() deve resetar o passo para 0, parar a execução e acionar stopRhythmNotes', () => {
     const spyStopAudio = vi.spyOn(sampleEngine, 'stopRhythmNotes');
 
+    // 1. Dispara o acorde (isso gera a 1ª chamada interna de corte)
     rhythmEngine.triggerChord('C', 1, 120);
     expect(rhythmEngine.isPlaying).toBe(true);
 
+    // 2. Limpa o contador do espião para focar apenas no que o stop() vai fazer
+    spyStopAudio.mockClear();
+
+    // 3. Executa o stop
     rhythmEngine.stop();
 
     expect(rhythmEngine.isPlaying).toBe(false);
     expect(rhythmEngine.isPlayingRhythm).toBe(false);
     expect(rhythmEngine.currentStep).toBe(0);
+    
+    // Agora sim: dentro do stop() ele foi chamado exatamente 1 vez!
     expect(spyStopAudio).toHaveBeenCalledTimes(1);
   });
 
