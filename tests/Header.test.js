@@ -1,4 +1,4 @@
-// tests/bpm-and-key.test.js
+// tests/Header.test.js
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import Header from '../src/components/Header.svelte';
@@ -8,7 +8,7 @@ import ChordPanel from '../src/components/ChordPanel.svelte';
  * ============================================================================
  * SUÍTE 1: BPM (Controles e Limites no Header)
  * ============================================================================
- * Valida a interface de ajuste de andamento (tempo musical):
+ * Valida a interface BPM (tempo musical):
  * - Botões de incremento rápido (+5, -1, -5).
  * - Digitação direta no input numérico.
  * - Regras de proteção de limites extremos (30 a 300 BPM).
@@ -19,7 +19,7 @@ describe('BPM (Controles e Limites)', () => {
    * 📜 Regra: O Header possui atalhos de -5, -1 e +5 para ajuste rápido em apresentações ao vivo.
    * 🔍 Validação: Dispara evento de clique em cada botão e confere o valor passado ao callback.
    */
-  it('deve disparar os passos de -5, -1 e +5 BPM corretamente', async () => {
+  it('deve alterar o BPM corretamente ao clicar nos botões -5, -1 e +5', async () => {
     const handleBpmChange = vi.fn();
 
     const { getByLabelText } = render(Header, {
@@ -44,7 +44,7 @@ describe('BPM (Controles e Limites)', () => {
    * 📜 Regra: O usuário pode digitar um andamento exato (ex: 135) em vez de usar os botões.
    * 🔍 Validação: Dispara o evento de 'input' no campo de texto e confere se onBpmSet recebe o número inteiro.
    */
-  it('deve disparar onBpmSet ao digitar diretamente no campo de número do BPM', async () => {
+  it('deve chamar onBpmSet ao digitar diretamente no campo de número do BPM', async () => {
     const handleBpmSet = vi.fn();
 
     const { getByLabelText } = render(Header, {
@@ -74,17 +74,17 @@ describe('BPM (Controles e Limites)', () => {
 
 /**
  * ============================================================================
- * SUÍTE 2: Tom e Toolbar do Header
+ * SUÍTE 2: Tom do Header
  * ============================================================================
  * Valida os controles de seleção de tom, dropdown, modo de letra e
  * o formulário de edição de título de músicas.
  */
-describe('Tom e Header Toolbar', () => {
+describe('Tom', () => {
   /**
    * 🎯 Objetivo: Validar a navegação sequencial por semitonos através dos botões + e -.
    * 📜 Regra: Clicar em '+' sobe 1 semitono; '-' desce 1 semitono.
    */
-  it('deve navegar pelos tons ao clicar em + e - no Header', async () => {
+  it('deve navegar pelos tons ao clicar em + e - no Tom', async () => {
     const handleKeyChange = vi.fn();
 
     const { getByLabelText } = render(Header, {
@@ -262,17 +262,9 @@ describe('Tom e Atualização do ChordPanel', () => {
     let labels = Array.from(container.querySelectorAll('.chord-btn')).map(el => el.textContent.trim());
 
     // Checagem dos 11 graus em Dó
-    expect(labels).toContain('C');
-    expect(labels).toContain('D');
-    expect(labels).toContain('Dm');
-    expect(labels).toContain('E');
-    expect(labels).toContain('Em');
-    expect(labels).toContain('F');
-    expect(labels).toContain('G');
-    expect(labels).toContain('A');
-    expect(labels).toContain('Am');
-    expect(labels).toContain('Bb');
-    expect(labels).toContain('B°');
+    const esperadosC = ['C', 'D', 'Dm', 'E', 'Em', 'F', 'G', 'A', 'Am', 'Bb', 'B°'];
+    expect(labels).toEqual(expect.arrayContaining(esperadosC));
+    expect(labels).toHaveLength(11);
 
     // 2. Transpõe para D (Ré Maior) com rerender assíncrono
     await rerender({ selectedKey: 'D' });
@@ -280,17 +272,9 @@ describe('Tom e Atualização do ChordPanel', () => {
     labels = Array.from(container.querySelectorAll('.chord-btn')).map(el => el.textContent.trim());
 
     // Checagem dos 11 graus em Ré
-    expect(labels).toContain('D');
-    expect(labels).toContain('E');
-    expect(labels).toContain('Em');
-    expect(labels).toContain('F#');
-    expect(labels).toContain('F#m');
-    expect(labels).toContain('G');
-    expect(labels).toContain('A');
-    expect(labels).toContain('B');
-    expect(labels).toContain('Bm');
-    expect(labels).toContain('C');
-    expect(labels).toContain('C#°');
+    const esperadosD = ['D', 'E', 'Em', 'F#', 'F#m', 'G', 'A', 'B', 'Bm', 'C', 'C#°'];
+    expect(labels).toEqual(expect.arrayContaining(esperadosD));
+    expect(labels).toHaveLength(11);
     expect(labels).not.toContain('F'); // F não pertence ao campo harmônico de D
   });
 
