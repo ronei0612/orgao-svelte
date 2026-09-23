@@ -116,12 +116,12 @@
 </script>
 
 <div class="display-wrapper">
-  <!-- Barra de Retorno Rápido (Quick Return) -->
+  <!-- Barra de Retorno Rápido como <button> acessível -->
   {#if activeTab !== 'song' && quickReturnSongTitle}
-    <div class="quick-return-bar" onclick={onReturnToSong} role="button" tabindex="0">
+    <button type="button" class="quick-return-bar" onclick={onReturnToSong}>
       <ArrowLeft size={16} />
       <span>Voltar para: <strong>{quickReturnSongTitle}</strong></span>
-    </div>
+    </button>
   {/if}
 
   {#if activeTab === 'liturgia'}
@@ -193,6 +193,7 @@
     ></div>
 
   {:else if content}
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
     <div 
       bind:this={viewContainerEl}
       class="display-container" 
@@ -235,9 +236,13 @@
     border-radius: 6px 6px 0 0;
     cursor: pointer;
     font-size: 13px;
+    font-family: inherit;
+    border: none;
+    width: 100%;
     user-select: none;
     transition: filter 0.15s ease;
     flex-shrink: 0;
+    text-align: left;
   }
 
   .quick-return-bar:hover {

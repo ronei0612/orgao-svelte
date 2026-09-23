@@ -1,16 +1,22 @@
 // vite.config.js
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { svelteTesting } from '@testing-library/svelte/vite';
 
 export default defineConfig(({ mode }) => ({
-  plugins: [svelte()],
+  plugins: [
+    svelte(),
+    svelteTesting() // Plugin oficial para testes do Svelte 5
+  ],
   base: './',
 
-  // ⚠️ ESSA É A CHAVE DA CORREÇÃO:
-  // Força o Svelte 5 a carregar o runtime do navegador (index-client.js) nos testes
-  resolve: {
-    conditions: mode === 'test' ? ['browser'] : []
-  },
+  // Aplica a resolução do 'browser' APENAS durante os testes do Vitest,
+  // sem apagar a configuração nativa do navegador no "npm run dev"
+  ...(mode === 'test' && {
+    resolve: {
+      conditions: ['browser']
+    }
+  }),
 
   test: {
     environment: 'jsdom',

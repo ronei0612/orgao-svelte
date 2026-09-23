@@ -14,7 +14,7 @@
   <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
     <div class="modal-header">
       <div class="title-wrap">
-        <Info size={20} class="text-teal" />
+        <Info size={20} color="var(--app-teal)" />
         <h4 id="about-title">Sobre o Projeto</h4>
       </div>
       <button class="btn-close" onclick={onClose} aria-label="Fechar"><X size={20} /></button>
