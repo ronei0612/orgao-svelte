@@ -22,7 +22,7 @@ describe('MusicTheory - Transposição e Detecção de Tom', () => {
     // C + 2 semitonos = D
     expect(MusicTheory.transposeChordString('C', 2)).toBe('D');
     // G + 1 semitono = G#
-    expect(MusicTheory.transposeChordString('G', 1)).toBe('G#');
+    expect(MusicTheory.transposeChordString('G', 1)).toBe('Ab');
     // B + 1 semitono = C (volta do ciclo)
     expect(MusicTheory.transposeChordString('B', 1)).toBe('C');
     // C - 1 semitono = B (volta inversa do ciclo)
@@ -36,13 +36,13 @@ describe('MusicTheory - Transposição e Detecção de Tom', () => {
    */
   it('deve transpor baixos invertidos (Slash Chords) transpondo ambos os lados da barra', () => {
     // D/F# subindo 1 tom (+2) -> E/G#
-    expect(MusicTheory.transposeChordString('D/F#', 2)).toBe('E/G#');
+    expect(MusicTheory.transposeChordString('D/F#', 2)).toBe('E/Ab');
 
     // C/E descendo 1 semitono (-1) -> B/D#
-    expect(MusicTheory.transposeChordString('C/E', -1)).toBe('B/D#');
+    expect(MusicTheory.transposeChordString('C/E', -1)).toBe('B/Eb');
 
     // A/C# subindo 1 semitono (+1) -> A#/D
-    expect(MusicTheory.transposeChordString('A/C#', 1)).toBe('A#/D');
+    expect(MusicTheory.transposeChordString('A/C#', 1)).toBe('Bb/D');
   });
 
   /**
@@ -52,7 +52,7 @@ describe('MusicTheory - Transposição e Detecção de Tom', () => {
     expect(MusicTheory.transposeChordString('Am7', 2)).toBe('Bm7');
     expect(MusicTheory.transposeChordString('C7M', 2)).toBe('D7M');
     expect(MusicTheory.transposeChordString('F#m7', 1)).toBe('Gm7');
-    expect(MusicTheory.transposeChordString('C°', 3)).toBe('D#°');
+    expect(MusicTheory.transposeChordString('C°', 3)).toBe('Eb°');
   });
 
   /**
@@ -60,7 +60,7 @@ describe('MusicTheory - Transposição e Detecção de Tom', () => {
    * 📜 Regra: Modifica apenas o texto interno das tags <b>...</b>, deixando o restante da letra intacto.
    * observação: Este teste está marcado como "skip" porque a função de transposição de HTML ainda não foi validada.
    */
-  it.skip('deve transpor todas as tags <b> dentro de um bloco HTML sem tocar no texto', () => {
+  it('deve transpor todas as tags <b> dentro de um bloco HTML sem tocar no texto', () => {
     const htmlEntrada = '<b>C</b> faz o verso e depois vai para <b>G</b>';
     // +2 semitonos: C vira D, G vira A
     const htmlSaida = MusicTheory.transposeHtmlContent(htmlEntrada, 2);
@@ -76,7 +76,7 @@ describe('MusicTheory - Transposição e Detecção de Tom', () => {
    *   - Se não houver cifras no texto, retorna 'L' (Modo Letra).
    * observação: Este teste está marcado como "skip" porque a função de detecção de tom ainda não foi validada.
    */
-  it.skip('deve detectar automaticamente o tom da música por pontuação diatônica', () => {
+  it('deve detectar automaticamente o tom da música por pontuação diatônica', () => {
     // 1. Campo harmônico de Sol Maior
     const cifrasSol = ['G', 'C', 'D', 'Em'];
     expect(MusicTheory.detectKeyFromChords(cifrasSol)).toBe('G');

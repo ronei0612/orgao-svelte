@@ -21,16 +21,22 @@
     onCancelEdit
   } = $props();
 
-  const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B', 'L'];
+  const majorKeys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+  // Se o tom atual for menor (ex: Am), adapta a lista de opções para tons menores
+  const isMinor = $derived(selectedKey && selectedKey.endsWith('m') && selectedKey !== 'L');
+  const availableKeys = $derived([
+    ...(isMinor ? majorKeys.map(k => `${k}m`) : majorKeys),
+    'L'
+  ]);
+
   let showActions = $state(false);
 
   $effect(() => {
     if (!showActions) return;
-
     function handleWindowClick() {
       showActions = false;
     }
-
     window.addEventListener('click', handleWindowClick);
     return () => window.removeEventListener('click', handleWindowClick);
   });
@@ -59,7 +65,12 @@
           onchange={(e) => onKeyChange(e.target.value)}
           aria-label="Tom"
         >
-          {#each keys as k}
+          <!-- Garante que se o tom detectado não estiver na lista ele seja exibido -->
+          {#if !availableKeys.includes(selectedKey) && selectedKey}
+            <option value={selectedKey}>{selectedKey}</option>
+          {/if}
+
+          {#each availableKeys as k}
             <option value={k}>{k === 'L' ? 'Letra' : k}</option>
           {/each}
         </select>
@@ -321,15 +332,15 @@
   }
 
   .group-select {
-    width: 62px;
+    width: 72px;
     height: 100%;
     background: transparent;
     color: var(--app-text);
     border: none;
     font-weight: bold;
-    font-size: 15px;
-    padding-left: 12px;
-    padding-right: 20px;
+    font-size: 14px;
+    padding-left: 10px;
+    padding-right: 22px;
     cursor: pointer;
     outline: none;
     appearance: none;
