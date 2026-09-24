@@ -18,14 +18,13 @@
   import { DatabaseManager } from './utils/databaseManager.js';
   import { wakeLockController } from './utils/wakeLock.js';
 
-  // --- ESTADOS DO SISTEMA & MODAIS ---
+  // --- ESTADOS DO SISTEMA ---
   let isMenuOpen = $state(false);
   let isDarkMode = $state(false);
   let isExportModalOpen = $state(false);
   let isImportModalOpen = $state(false);
   let isAboutModalOpen = $state(false);
 
-  // 'song' | 'liturgia' | 'missa' | 'oracoes'
   let activeTab = $state('song');
 
   let currentKey = $state('C');
@@ -47,15 +46,13 @@
   let songTitle = $state('');
   let editingContent = $state('');
   let displayedContent = $state('');
-  let selectedSongId = $state('');
+  let selectedSongId = $state(''); // '' = Acordes (padrão)
   let songs = $state([]);
 
   let currentStepIndex = $state(-1);
   let totalChordSteps = $state(0);
 
-  // FLAG CRÍTICA DE CONTROLE MANUAL vs DETECÇÃO AUTOMÁTICA
-  // false: o sistema descobre e salva o tom automaticamente
-  // true: o usuário escolheu o tom manualmente no Header (prioridade manual)
+  // Flag de controle manual do tom
   let isUserSetKey = $state(false);
 
   const isLyricsOnly = $derived(currentKey === 'L');
@@ -100,22 +97,30 @@
 
     window.addEventListener('keydown', handleKeydown);
 
+    // Carrega o banco do localStorage
     songs = DatabaseManager.getSongs();
-    if (songs.length > 0) {
-      loadSong(songs[0].id);
-    }
+
+    // REGRA: Ao carregar a página, inicia SEMPRE em "Acordes" por padrão
+    selectedSongId = '';
+    displayedContent = '';
+    currentKey = 'C';
+    currentStepIndex = -1;
 
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 
   function loadSong(id) {
-    const song = songs.find((s) => s.id === id);
-    if (!song) {
+    if (!id) {
+      // Volta para o modo 'Acordes'
       selectedSongId = '';
       displayedContent = '';
       currentStepIndex = -1;
+      if (currentKey === 'L') currentKey = 'C';
       return;
     }
+
+    const song = songs.find((s) => s.id === id);
+    if (!song) return;
 
     selectedSongId = song.id;
     activeTab = 'song';
@@ -143,11 +148,8 @@
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }
 
-  // --- ALTERAÇÃO DE TOM NO HEADER ---
   function handleKeyChange(newVal) {
-    // O usuário mexeu deliberadamente no controle de tom (select ou botões + / -)
     isUserSetKey = true;
-
     const baseKeys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
     if (typeof newVal === 'number') {
@@ -160,9 +162,7 @@
       if (idx !== -1) {
         const nextIdx = (idx + newVal + 12) % 12;
         const nextNote = baseKeys[nextIdx];
-        const targetKey = isMinor ? `${nextNote}m` : nextNote;
-        
-        currentKey = targetKey;
+        currentKey = isMinor ? `${nextNote}m` : nextNote;
         transposeDisplayedSong(newVal);
       }
     } else {
@@ -188,7 +188,6 @@
   }
 
   function transposeDisplayedSong(delta) {
-    // A transposição de texto visual só ocorre fora do modo de edição
     if (!isEditing && displayedContent && delta !== 0) {
       displayedContent = MusicTheory.transposeHtmlContent(displayedContent, delta);
     }
@@ -226,7 +225,6 @@
     }
   }
 
-  // --- NAVEGAÇÃO DE ACORDES ---
   function handleNextChord() {
     if (totalChordSteps === 0) return;
     currentStepIndex = (currentStepIndex + 1) % totalChordSteps;
@@ -281,27 +279,24 @@
     playChordSound(chordName);
   }
 
-  // --- CRUD REPERTÓRIO ---
+  // --- AÇÕES CRUD ---
   function handleAddSong() {
     activeTab = 'song';
     isEditing = true;
-    isUserSetKey = false; // Permite que o tom seja descoberto automaticamente a partir das novas cifras
+    isUserSetKey = false;
     songTitle = '';
     editingContent = '';
     currentKey = 'C';
   }
 
   function handleEditSong() {
-    if (!selectedSongId) {
-      alert('Selecione uma música para editar.');
-      return;
-    }
+    if (!selectedSongId) return;
     const song = songs.find((s) => s.id === selectedSongId);
     if (!song) return;
 
     activeTab = 'song';
     isEditing = true;
-    isUserSetKey = false; // Se o usuário alterar as cifras e não mexer no select, re-detecta o novo tom
+    isUserSetKey = false;
     songTitle = song.title;
     editingContent = song.content;
     currentKey = song.key || 'C';
@@ -314,7 +309,6 @@
     editingContent = '';
   }
 
-  // --- SALVAR MÚSICA (REGRA CENTRAL) ---
   function handleSaveSong() {
     const title = songTitle.trim();
     if (!title) {
@@ -324,19 +318,17 @@
 
     let keyToSave = currentKey;
 
-    // Se o usuário NÃO alterou manualmente o tom no select durante a edição/criação:
-    // descobre o tom automaticamente através do conteúdo das cifras!
+    // Se o usuário não alterou manualmente, detecta pelo texto
     if (!isUserSetKey) {
       const detectedKey = MusicTheory.detectKeyFromChords(editingContent);
       keyToSave = detectedKey || 'C';
-      currentKey = keyToSave; // Sincroniza a interface com o tom descoberto
+      currentKey = keyToSave;
     }
-    // Se isUserSetKey for true, mantém keyToSave = currentKey (o valor que o usuário escolheu no select)
 
     const payload = {
       title,
       content: editingContent,
-      key: keyToSave, // Persiste no banco de dados local
+      key: keyToSave,
       bpm: currentBpm,
       instrument: currentInstrument,
       style: selectedRhythm
@@ -355,20 +347,16 @@
 
     currentStepIndex = 0;
     isEditing = false;
-    isUserSetKey = false; // Reinicia a flag para as próximas operações
+    isUserSetKey = false;
   }
 
   function handleDeleteSong() {
     if (!selectedSongId) return;
-    const song = songs.find((s) => s.id === selectedSongId);
-    if (!song) return;
-
-    if (confirm(`Deseja excluir a música "${song.title}"?`)) {
-      songs = DatabaseManager.deleteSong(selectedSongId);
-      selectedSongId = '';
-      displayedContent = '';
-      currentStepIndex = -1;
-    }
+    songs = DatabaseManager.deleteSong(selectedSongId);
+    selectedSongId = '';
+    displayedContent = '';
+    currentStepIndex = -1;
+    currentKey = 'C';
   }
 
   function handleImportComplete(newSongsList) {
@@ -382,9 +370,9 @@
     if (confirm('⚠️ ATENÇÃO: Isso apagará TODO o repertório salvo e restaurará os dados de fábrica. Deseja continuar?')) {
       localStorage.clear();
       songs = DatabaseManager.getSongs();
-      if (songs.length > 0) {
-        loadSong(songs[0].id);
-      }
+      selectedSongId = '';
+      displayedContent = '';
+      currentKey = 'C';
       alert('Aplicativo restaurado com sucesso.');
     }
   }
@@ -444,6 +432,7 @@
     onNextChord={handleNextChord}
   />
 
+  <!-- Grade de 11 botões exibida quando estiver no modo 'Acordes' -->
   {#if !selectedSongId && activeTab === 'song'}
     <ChordPanel 
       selectedKey={currentKey}
