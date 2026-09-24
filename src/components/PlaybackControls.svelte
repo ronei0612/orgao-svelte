@@ -1,7 +1,7 @@
 <script>
   /**
    * src/components/PlaybackControls.svelte
-   * Controles flutuantes arrastáveis quando uma cifra está selecionada (conforme o print)
+   * Controles flutuantes arrastáveis com botões 100% clicáveis
    */
 
   let { 
@@ -15,56 +15,67 @@
     onNextChord
   } = $props();
 
-  function nextPhase() {
+  function nextPhase(e) {
+    e?.stopPropagation();
+    if (hasMoved) return;
     const next = (phase % 3) + 1;
     if (onPhaseChange) onPhaseChange(next);
   }
 
-  // --- MOTOR DRAG AND DROP (INSPIRADO NO BETA) ---
+  // --- MOTOR DRAG AND DROP CORRIGIDO ---
   let panelEl = $state(null);
-  let isDragging = $state(false);
+  let isPointerDown = false;
   let hasMoved = $state(false);
 
-  // Coordenadas livres quando está flutuando
   let posX = $state(null);
   let posY = $state(null);
 
-  let dragStart = { x: 0, y: 0 };
-  let panelStart = { x: 0, y: 0 };
+  let startClientX = 0;
+  let startClientY = 0;
+  let panelInitialX = 0;
+  let panelInitialY = 0;
 
-  // Posiciona inicialmente no canto inferior esquerdo/centro conforme o print
   $effect(() => {
     if (showNav && posX === null && typeof window !== 'undefined') {
-      posX = Math.max(16, (window.innerWidth - 250) / 2);
+      const panelWidth = 240;
+      posX = Math.max(16, (window.innerWidth - panelWidth) / 2);
       posY = Math.max(80, window.innerHeight - 175);
+    }
+    if (!showNav) {
+      posX = null;
+      posY = null;
     }
   });
 
-  function onPointerDown(e) {
+  function handleContainerPointerDown(e) {
     if (!showNav) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
 
-    isDragging = true;
+    isPointerDown = true;
     hasMoved = false;
-    dragStart = { x: e.clientX, y: e.clientY };
+    startClientX = e.clientX;
+    startClientY = e.clientY;
 
     if (panelEl) {
       const rect = panelEl.getBoundingClientRect();
-      panelStart = { x: rect.left, y: rect.top };
-
-      try {
-        panelEl.setPointerCapture(e.pointerId);
-      } catch (err) {}
+      panelInitialX = rect.left;
+      panelInitialY = rect.top;
     }
+
+    // Escuta na janela para permitir arrastar suavemente mesmo se o ponteiro sair do painel
+    window.addEventListener('pointermove', handleWindowPointerMove);
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerUp);
   }
 
-  function onPointerMove(e) {
-    if (!isDragging) return;
+  function handleWindowPointerMove(e) {
+    if (!isPointerDown) return;
 
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
+    const dx = e.clientX - startClientX;
+    const dy = e.clientY - startClientY;
 
-    if (!hasMoved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+    // Só ativa arrasto se mover mais de 8 pixels (preserva 100% o clique)
+    if (!hasMoved && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
       hasMoved = true;
     }
 
@@ -77,33 +88,42 @@
       const minY = 50;
       const maxY = window.innerHeight - panelHeight - 8;
 
-      posX = Math.max(minX, Math.min(maxX, panelStart.x + dx));
-      posY = Math.max(minY, Math.min(maxY, panelStart.y + dy));
+      posX = Math.max(minX, Math.min(maxX, panelInitialX + dx));
+      posY = Math.max(minY, Math.min(maxY, panelInitialY + dy));
     }
   }
 
-  function onPointerUp(e) {
-    if (!isDragging) return;
-    isDragging = false;
-
-    if (panelEl) {
-      try {
-        panelEl.releasePointerCapture(e.pointerId);
-      } catch (err) {}
-    }
+  function handleWindowPointerUp() {
+    isPointerDown = false;
+    window.removeEventListener('pointermove', handleWindowPointerMove);
+    window.removeEventListener('pointerup', handleWindowPointerUp);
+    window.removeEventListener('pointercancel', handleWindowPointerUp);
 
     if (hasMoved) {
-      // Bloqueia cliques acidentais nos botões se foi apenas um arrasto
-      const preventClick = (ev) => {
-        ev.stopPropagation();
-        ev.preventDefault();
-        window.removeEventListener('click', preventClick, true);
-      };
-      window.addEventListener('click', preventClick, true);
-
       setTimeout(() => {
         hasMoved = false;
-      }, 60);
+      }, 80);
+    }
+  }
+
+  function handlePlayClick(e) {
+    e.stopPropagation();
+    if (!hasMoved) {
+      onTogglePlay?.();
+    }
+  }
+
+  function handlePrevClick(e) {
+    e.stopPropagation();
+    if (!hasMoved) {
+      onPrevChord?.();
+    }
+  }
+
+  function handleNextClick(e) {
+    e.stopPropagation();
+    if (!hasMoved) {
+      onNextChord?.();
     }
   }
 </script>
@@ -112,12 +132,9 @@
   bind:this={panelEl}
   class="playback-panel" 
   class:floating-pill={showNav}
-  class:is-dragging={isDragging && hasMoved}
+  class:is-dragging={hasMoved}
   style={showNav && posX !== null ? `left: ${posX}px; top: ${posY}px;` : ''}
-  onpointerdown={onPointerDown}
-  onpointermove={onPointerMove}
-  onpointerup={onPointerUp}
-  onpointercancel={onPointerUp}
+  onpointerdown={handleContainerPointerDown}
   role="region"
   aria-label="Controles de Reprodução"
 >
@@ -126,7 +143,7 @@
     <button 
       type="button" 
       class="nav-btn" 
-      onclick={(e) => { if (!hasMoved) onPrevChord?.(); }}
+      onclick={handlePrevClick}
       title="Acorde Anterior (Seta Esquerda)" 
       aria-label="Acorde Anterior"
     >
@@ -142,7 +159,7 @@
     class="btn-circle btn-play" 
     class:playing={isPlaying} 
     class:bpm-blink={isBlinking}
-    onclick={(e) => { if (!hasMoved) onTogglePlay?.(); }} 
+    onclick={handlePlayClick} 
     aria-label={isPlaying ? "Parar" : "Reproduzir"}
     title="Reproduzir / Parar (Espaço)"
   >
@@ -158,7 +175,7 @@
     <button 
       type="button" 
       class="nav-btn" 
-      onclick={(e) => { if (!hasMoved) onNextChord?.(); }}
+      onclick={handleNextClick}
       title="Próximo Acorde (Seta Direita)" 
       aria-label="Próximo Acorde"
     >
@@ -168,12 +185,12 @@
     </button>
   {/if}
 
-  <!-- Botão Fase Harmônica (Órgão / Cordas / Cheio) -->
+  <!-- Botão Fase Harmônica -->
   <button 
     type="button"
     class="btn-circle btn-music" 
     class:phase-3={phase === 3}
-    onclick={(e) => { if (!hasMoved) nextPhase(); }} 
+    onclick={nextPhase} 
     title="Fase Harmônica (1: Órgão, 2: +Cordas, 3: Cheio)"
     aria-label="Fase Harmônica"
   >
@@ -196,7 +213,6 @@
 </div>
 
 <style>
-  /* MODO ESTÁTICO PADRÃO (Sem música / modo Acordes livres) */
   .playback-panel {
     display: flex;
     align-items: center;
@@ -205,23 +221,22 @@
     padding: 2px 0;
   }
 
-  /* MODO CÁPSULA FLUTUANTE (EXATAMENTE COMO NO PRINT) */
   .playback-panel.floating-pill {
     position: fixed;
-    z-index: 150;
+    z-index: 200;
     display: inline-flex;
     align-items: center;
     gap: 14px;
     padding: 6px 16px;
-    background: rgba(252, 249, 238, 0.82); /* Cor de fundo suave com transparência */
+    background: rgba(252, 249, 238, 0.88);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 50px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-    cursor: grab;
     touch-action: none;
     user-select: none;
+    cursor: grab;
     transition: box-shadow 0.2s, background-color 0.2s;
   }
 
@@ -232,7 +247,7 @@
   }
 
   [data-theme="dark"] .playback-panel.floating-pill {
-    background: rgba(30, 30, 30, 0.85);
+    background: rgba(30, 30, 30, 0.88);
     border-color: rgba(255, 255, 255, 0.12);
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   }
@@ -245,11 +260,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     padding: 0;
-    opacity: 0.8;
+    opacity: 0.85;
+    pointer-events: auto;
+    touch-action: manipulation;
     transition: transform 0.12s ease, opacity 0.12s ease, color 0.12s ease;
   }
 
@@ -257,6 +274,10 @@
     opacity: 1;
     color: var(--app-teal);
     transform: scale(1.1);
+  }
+
+  .nav-btn:active {
+    transform: scale(0.92);
   }
 
   [data-theme="dark"] .nav-btn {
@@ -273,6 +294,8 @@
     justify-content: center;
     color: white;
     cursor: pointer;
+    pointer-events: auto;
+    touch-action: manipulation;
     transition: transform 0.15s ease, box-shadow 0.25s ease, background-color 0.25s ease;
     user-select: none;
     padding: 0;
@@ -282,7 +305,6 @@
     transform: scale(0.92);
   }
 
-  /* Botão Play Azul com Brilho do Print */
   .btn-play {
     background-color: #2680eb;
     box-shadow: 0 0 18px 5px rgba(38, 128, 235, 0.45);
@@ -316,7 +338,6 @@
     border-radius: 3px;
   }
 
-  /* Botão de Fase Harmônica Verde-Petróleo */
   .btn-music {
     width: 44px;
     height: 44px;

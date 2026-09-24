@@ -32,10 +32,20 @@
     selectedSongId ? ['L', ...baseKeys] : baseKeys
   );
 
-  // --- BUSCA E SELEÇÃO DE MÚSICAS ---
+  // --- MÁQUINA DE 4 ESTADOS DO SELECT ---
+  // 1 = Resetado (início/padrão)
+  // 2 = Em branco (editável)
+  // 3 = Com texto (editável)
+  // 4 = Item selecionado
+  let currentMode = $state(1);
   let isDropdownOpen = $state(false);
-  let isTyping = $state(false); // Flag que indica se o usuário está digitando ativamente
-  let searchQuery = $state('');
+
+  // Persistência estrita dos caracteres digitados no modo editável
+  const STORAGE_KEY = 'orgao_search_query';
+  let savedSearchText = $state(
+    (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) || ''
+  );
+
   let searchInputEl = $state(null);
   let showActions = $state(false);
 
@@ -43,77 +53,110 @@
   let isConfirmEditOpen = $state(false);
   let isConfirmDeleteOpen = $state(false);
 
-  // Músicas em ordem alfabética estrita case-insensitive
+  // Ordenação alfabética case-insensitive
   const sortedSongs = $derived(
     [...songs].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' }))
   );
 
-  // Filtro de busca em tempo real
+  // Filtro baseado nos caracteres guardados
   const filteredSongs = $derived.by(() => {
-    if (!searchQuery.trim()) return sortedSongs;
-    const q = searchQuery.toLowerCase().trim();
+    if (!savedSearchText.trim()) return sortedSongs;
+    const q = savedSearchText.toLowerCase().trim();
     return sortedSongs.filter(s => s.title.toLowerCase().includes(q));
   });
 
   const selectedSong = $derived(songs.find(s => s.id === selectedSongId));
-  
-  // Exibe o que está sendo digitado OU o título da música selecionada
-  const displayValue = $derived(
-    isTyping ? searchQuery : (selectedSong ? selectedSong.title : '')
-  );
 
+  // Determina o texto exibido no input conforme os 4 estados
+  const displayValue = $derived.by(() => {
+    if (currentMode === 1) return ''; // Modo 1: Resetado (mostra placeholder)
+    if (currentMode === 2) return ''; // Modo 2: Em branco (editável)
+    if (currentMode === 3) return savedSearchText; // Modo 3: Com texto guardado
+    if (currentMode === 4) return selectedSong ? selectedSong.title : ''; // Modo 4: Item selecionado
+    return '';
+  });
+
+  const placeholderText = $derived.by(() => {
+    if (currentMode === 2) return 'Digite para buscar...';
+    if (currentMode === 4 && selectedSong) return selectedSong.title;
+    return 'Escolha a Música...';
+  });
+
+  // Fecha dropdown e retorna aos estados de repouso (Modo 4 se tem música, Modo 1 se não tem)
   function handleWindowClick(e) {
     if (!e.target.closest('.song-search-wrapper')) {
       isDropdownOpen = false;
-      isTyping = false;
-      searchQuery = '';
+      if (selectedSongId) {
+        currentMode = 4; // Volta a exibir o título da música
+      } else {
+        currentMode = 1; // Volta para o resetado
+      }
     }
     if (!e.target.closest('.right-cluster')) {
       showActions = false;
     }
   }
 
-  function handleInputFocus() {
-    showActions = false; // Oculta botões de ação ao focar
+  // AO CLICAR NO SELECT: entra no modo editável e CARREGA O TEXTO
+  function handleInputClick() {
+    showActions = false;
     isDropdownOpen = true;
+
+    if (savedSearchText.trim() !== '') {
+      currentMode = 3; // Carrega o texto guardado (Modo 3)
+    } else {
+      currentMode = 2; // Fica em branco para digitar (Modo 2)
+    }
   }
 
+  // AO DIGITAR: atualiza e guarda os caracteres
   function handleInput(e) {
-    searchQuery = e.target.value;
-    isTyping = true;
+    savedSearchText = e.target.value;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, savedSearchText);
+    }
+    currentMode = savedSearchText !== '' ? 3 : 2;
     isDropdownOpen = true;
     showActions = false;
   }
 
+  // AO CLICAR NO 'X': limpa o texto e vai para o MODO 2 (em branco editável)
   function handleClearSearch(e) {
     e.stopPropagation();
-    searchQuery = '';
-    isTyping = false;
-    onSongChange(''); // Volta para o modo padrão "Acordes"
+    savedSearchText = '';
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    currentMode = 2; // Fica em branco editável
+    isDropdownOpen = true;
     if (searchInputEl) {
+      searchInputEl.value = '';
       searchInputEl.focus();
     }
-    isDropdownOpen = true;
   }
 
+  // AO SELECIONAR UM ITEM: vai para o MODO 4 (Item selecionado)
   function handleSelectSong(id) {
     onSongChange(id);
+    currentMode = 4; // Modo 4: Item selecionado (mostra título da música + seta v)
     isDropdownOpen = false;
-    isTyping = false; // Desativa digitação: volta a mostrar a seta v
-    searchQuery = '';
+    // Note que savedSearchText NÃO é apagado! Permanece guardado na memória.
   }
 
   function handleSelectAcordes() {
     onSongChange('');
+    currentMode = 1; // Modo 1: Resetado
     isDropdownOpen = false;
-    isTyping = false;
-    searchQuery = '';
   }
 
   function toggleDropdown(e) {
     e.stopPropagation();
-    isDropdownOpen = !isDropdownOpen;
-    showActions = false;
+    if (isDropdownOpen) {
+      isDropdownOpen = false;
+      currentMode = selectedSongId ? 4 : 1;
+    } else {
+      handleInputClick();
+    }
   }
 
   function escapeRegExp(string) {
@@ -213,22 +256,22 @@
         <button type="button" class="btn-action btn-cancel" onclick={onCancelEdit} title="Cancelar"><X size={18} /></button>
       </div>
     {:else}
-      <!-- Seletor com Busca -->
+      <!-- Seletor com Máquina de 4 Estados -->
       <div class="input-group song-group">
         <div class="song-search-wrapper">
           <input 
             bind:this={searchInputEl}
             type="text"
             class="song-search-input"
-            placeholder="Escolha a Música..."
+            placeholder={placeholderText}
             value={displayValue}
-            onfocus={handleInputFocus}
+            onclick={handleInputClick}
             oninput={handleInput}
             aria-label="Pesquisar Música"
           />
 
-          <!-- O 'X' SÓ APARECE SE ESTIVER DIGITANDO ATIVAMENTE COM TEXTO -->
-          {#if isTyping && searchQuery !== ''}
+          <!-- ÍCONE: 'X' apenas no Modo 3 (com texto). Em todos os outros modos exibe a seta 'v' -->
+          {#if currentMode === 3 && savedSearchText !== ''}
             <button 
               type="button" 
               class="btn-icon-clear" 
@@ -239,13 +282,12 @@
               <X size={16} />
             </button>
           {:else}
-            <!-- CASO CONTRÁRIO, EXIBE SEMPRE A SETA PARA BAIXO (IGUAL AO PRINT) -->
             <div class="search-arrow-wrap" onclick={toggleDropdown} role="button" tabindex="0">
               <ChevronDown size={15} />
             </div>
           {/if}
 
-          <!-- Dropdown Arredondado com Realce Amarelo -->
+          <!-- Menu Suspenso -->
           {#if isDropdownOpen}
             <div class="search-dropdown-menu">
               <div 
@@ -273,7 +315,7 @@
                     tabindex="0"
                     onkeydown={(e) => e.key === 'Enter' && handleSelectSong(s.id)}
                   >
-                    {@html formatHighlight(s.title, searchQuery)}
+                    {@html formatHighlight(s.title, savedSearchText)}
                   </div>
                 {/each}
               {/if}
@@ -281,7 +323,7 @@
           {/if}
         </div>
 
-        <!-- Botões de Ação na extremidade direita -->
+        <!-- Ações (+ / Editar / Excluir) -->
         {#if !showActions}
           <button 
             type="button" 
@@ -507,7 +549,6 @@
     margin: 0;
   }
 
-  /* --- CAMPO DE BUSCA DE MÚSICA --- */
   .song-search-wrapper {
     position: relative;
     flex: 1;
@@ -525,6 +566,11 @@
     font-size: 14px;
     padding: 0 32px 0 12px;
     outline: none;
+  }
+
+  .song-search-input::placeholder {
+    color: #6c757d;
+    opacity: 0.8;
   }
 
   .search-arrow-wrap {
@@ -552,7 +598,6 @@
 
   .btn-icon-clear:hover { background: rgba(13, 110, 253, 0.1); }
 
-  /* --- MENU SUSPENSO --- */
   .search-dropdown-menu {
     position: absolute;
     top: calc(100% + 4px);
