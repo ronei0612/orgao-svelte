@@ -67,7 +67,7 @@
   <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="export-title">
     <div class="modal-header">
       <div class="title-wrap">
-        <Download size={20} class="text-teal" />
+        <Download size={20} class="var(--app-teal)" />
         <h4 id="export-title">Exportar Repertório</h4>
       </div>
       <button class="btn-close" onclick={onClose} aria-label="Fechar"><X size={20} /></button>
@@ -79,9 +79,9 @@
       {:else}
         <div class="select-all-row" onclick={toggleSelectAll} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && toggleSelectAll()}>
           {#if isAllSelected}
-            <CheckSquare size={18} class="text-teal" />
+            <CheckSquare size={18} class="var(--app-teal)" />
           {:else}
-            <Square size={18} color="#888" />
+            <Square size={18} class="var(--app-text)" />
           {/if}
           <span>Selecionar Todas ({selectedIds.size}/{songs.length})</span>
         </div>
@@ -167,8 +167,6 @@
     font-size: 17px;
     font-weight: bold;
   }
-
-  .text-teal { color: var(--app-teal); }
 
   .btn-close {
     background: none;
