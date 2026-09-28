@@ -1,7 +1,7 @@
 <script>
   /**
    * src/components/PlaybackControls.svelte
-   * Controles flutuantes arrastáveis com botões 100% clicáveis
+   * Controles flutuantes arrastáveis idênticos ao layout original (.floating-controls)
    */
 
   let { 
@@ -22,7 +22,7 @@
     if (onPhaseChange) onPhaseChange(next);
   }
 
-  // --- MOTOR DRAG AND DROP CORRIGIDO ---
+  // --- MOTOR DRAG AND DROP ---
   let panelEl = $state(null);
   let isPointerDown = false;
   let hasMoved = $state(false);
@@ -37,7 +37,7 @@
 
   $effect(() => {
     if (showNav && posX === null && typeof window !== 'undefined') {
-      const panelWidth = 240;
+      const panelWidth = 260;
       posX = Math.max(16, (window.innerWidth - panelWidth) / 2);
       posY = Math.max(80, window.innerHeight - 175);
     }
@@ -62,7 +62,6 @@
       panelInitialY = rect.top;
     }
 
-    // Escuta na janela para permitir arrastar suavemente mesmo se o ponteiro sair do painel
     window.addEventListener('pointermove', handleWindowPointerMove);
     window.addEventListener('pointerup', handleWindowPointerUp);
     window.addEventListener('pointercancel', handleWindowPointerUp);
@@ -74,18 +73,18 @@
     const dx = e.clientX - startClientX;
     const dy = e.clientY - startClientY;
 
-    // Só ativa arrasto se mover mais de 8 pixels (preserva 100% o clique)
-    if (!hasMoved && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    // Ativa o arrasto se mover mais de 6 pixels
+    if (!hasMoved && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
       hasMoved = true;
     }
 
     if (hasMoved && panelEl) {
-      const panelWidth = panelEl.offsetWidth || 240;
-      const panelHeight = panelEl.offsetHeight || 64;
+      const panelWidth = panelEl.offsetWidth || 260;
+      const panelHeight = panelEl.offsetHeight || 66;
 
       const minX = 8;
       const maxX = window.innerWidth - panelWidth - 8;
-      const minY = 50;
+      const minY = 8; // Permite arrastar até o topo como no print original (top: 14px)
       const maxY = window.innerHeight - panelHeight - 8;
 
       posX = Math.max(minX, Math.min(maxX, panelInitialX + dx));
@@ -131,14 +130,14 @@
 <div 
   bind:this={panelEl}
   class="playback-panel" 
-  class:floating-pill={showNav}
+  class:floating-controls={showNav}
   class:is-dragging={hasMoved}
-  style={showNav && posX !== null ? `left: ${posX}px; top: ${posY}px;` : ''}
+  style={showNav && posX !== null ? `left: ${posX}px; top: ${posY}px; margin: 0px;` : ''}
   onpointerdown={handleContainerPointerDown}
   role="region"
   aria-label="Controles de Reprodução"
 >
-  <!-- Botão Acorde Anterior -->
+  <!-- Botão Acorde Anterior (|◀) -->
   {#if showNav}
     <button 
       type="button" 
@@ -153,7 +152,7 @@
     </button>
   {/if}
 
-  <!-- Botão Play / Stop Central -->
+  <!-- Botão Play / Stop Central com Glow Azul -->
   <button 
     type="button"
     class="btn-circle btn-play" 
@@ -170,7 +169,7 @@
     {/if}
   </button>
 
-  <!-- Botão Próximo Acorde -->
+  <!-- Botão Próximo Acorde (▶|) -->
   {#if showNav}
     <button 
       type="button" 
@@ -185,7 +184,7 @@
     </button>
   {/if}
 
-  <!-- Botão Fase Harmônica -->
+  <!-- Botão Fase Harmônica (Círculo Teal com Ícone) -->
   <button 
     type="button"
     class="btn-circle btn-music" 
@@ -213,6 +212,7 @@
 </div>
 
 <style>
+  /* Painel padrão quando em modo livre (sem música selecionada) */
   .playback-panel {
     display: flex;
     align-items: center;
@@ -221,37 +221,32 @@
     padding: 2px 0;
   }
 
-  .playback-panel.floating-pill {
+  /* ESTILOS EXATOS DO PRINT (styles.css:526) */
+  .playback-panel.floating-controls {
     position: fixed;
-    z-index: 200;
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-    padding: 6px 16px;
-    background: rgba(252, 249, 238, 0.88);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    z-index: 45;
+    background-color: var(--app-bg-floating);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
+    box-shadow: 0 10px 30px var(--app-shadow-floating);
     border-radius: 50px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-    touch-action: none;
+    padding: 10px 20px;
+    cursor: move;
     user-select: none;
-    cursor: grab;
-    transition: box-shadow 0.2s, background-color 0.2s;
+    touch-action: none;
+    transition: background-color 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem; /* gap-4 = 24px */
   }
 
-  .playback-panel.floating-pill.is-dragging {
-    cursor: grabbing;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  .playback-panel.floating-controls.is-dragging {
     opacity: 0.95;
+    box-shadow: 0 14px 34px var(--app-shadow-floating);
   }
 
-  [data-theme="dark"] .playback-panel.floating-pill {
-    background: rgba(30, 30, 30, 0.88);
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-  }
-
+  /* Botões direcionais de cifras (|◀ e ▶|) */
   .nav-btn {
     background: none;
     border: none;
@@ -260,9 +255,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
     padding: 0;
     opacity: 0.85;
     pointer-events: auto;
@@ -281,12 +275,11 @@
   }
 
   [data-theme="dark"] .nav-btn {
-    color: #adb5bd;
+    color: #ced4da;
   }
 
+  /* Botão Play circular com aura luminosa azul idêntica ao print */
   .btn-circle {
-    width: 50px;
-    height: 50px;
     border-radius: 50%;
     border: none;
     display: flex;
@@ -306,8 +299,10 @@
   }
 
   .btn-play {
+    width: 48px;
+    height: 48px;
     background-color: #2680eb;
-    box-shadow: 0 0 18px 5px rgba(38, 128, 235, 0.45);
+    box-shadow: 0 0 22px 6px rgba(38, 128, 235, 0.55);
   }
 
   .btn-play.playing {
@@ -318,31 +313,32 @@
   .btn-play.bpm-blink {
     filter: brightness(1.35);
     transform: scale(1.06);
-    box-shadow: 0 0 24px 8px rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 26px 8px rgba(255, 255, 255, 0.9);
   }
 
   .icon-play {
     width: 0;
     height: 0;
-    border-top: 9px solid transparent;
-    border-bottom: 9px solid transparent;
-    border-left: 15px solid #ffffff;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 14px solid #ffffff;
     margin-left: 3px;
     border-radius: 2px;
   }
 
   .icon-stop {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     background-color: #ffffff;
     border-radius: 3px;
   }
 
+  /* Botão Teal de Fase Harmônica */
   .btn-music {
     width: 44px;
     height: 44px;
-    background-color: #0b8e8e;
-    box-shadow: 0 0 10px 1px rgba(11, 142, 142, 0.3);
+    background-color: var(--app-teal);
+    box-shadow: 0 0 12px 2px rgba(11, 142, 142, 0.35);
   }
 
   .btn-music.phase-3 {
