@@ -91,7 +91,6 @@
   }
 
   .title-wrap h4 { margin: 0; font-size: 17px; font-weight: bold; }
-  .text-teal { color: var(--app-teal); }
 
   .btn-close {
     background: none;

@@ -1,4 +1,6 @@
 <script>
+  import { MusicTheory } from '../utils/musicTheory.js';
+
   let { 
     selectedKey = 'C', 
     activeSlot = null, 
@@ -8,14 +10,18 @@
   const NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
   function calculateChords(rootKey) {
-    if (rootKey === 'L') rootKey = 'C';
-    let baseIdx = NOTES.indexOf(rootKey);
+    if (!rootKey || rootKey === 'L') rootKey = 'C';
+
+    const isMinor = rootKey.endsWith('m');
+    const rootName = isMinor ? rootKey.slice(0, -1) : rootKey;
+
+    let baseIdx = MusicTheory.getNoteIndex(rootName);
     if (baseIdx === -1) baseIdx = 0;
 
-    const getNote = (interval) => NOTES[(baseIdx + interval) % 12];
+    // Se o tom for menor (ex: Am), projeta os 11 botões com a relativa maior (+3 semitonos: C)
+    const effectiveBase = isMinor ? (baseIdx + 3) % 12 : baseIdx;
+    const getNote = (interval) => NOTES[(effectiveBase + interval) % 12];
 
-    // IDs fixos por grau (slotId): assim, quando o tom muda, a tecla que estava soando
-    // permanece afundada e com a aura luminosa sem sumir!
     const aux = [
       { id: 'aux-0', name: getNote(10), bg: '#788290' },        // bVII
       { id: 'aux-1', name: getNote(9), bg: '#b095e6' },         // VI
@@ -76,7 +82,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px; /* Espaçamento vertical compacto */
+    gap: 8px;
     padding: 2px 0 6px 0;
   }
 

@@ -18,14 +18,13 @@
   import { DatabaseManager } from './utils/databaseManager.js';
   import { wakeLockController } from './utils/wakeLock.js';
 
-  // --- ESTADOS DO SISTEMA & MODAIS ---
+  // --- ESTADOS DO SISTEMA ---
   let isMenuOpen = $state(false);
   let isDarkMode = $state(false);
   let isExportModalOpen = $state(false);
   let isImportModalOpen = $state(false);
   let isAboutModalOpen = $state(false);
 
-  // 'song' | 'liturgia' | 'missa' | 'oracoes'
   let activeTab = $state('song');
 
   let currentKey = $state('C');
@@ -42,16 +41,19 @@
   let rhythmsList = $state(['Sem ritmo']);
   let selectedRhythm = $state('Sem ritmo');
 
-  // --- REPERTÓRIO & NAVEGAÇÃO DE CIFRAS ---
+  // --- REPERTÓRIO & EDIÇÃO ---
   let isEditing = $state(false);
   let songTitle = $state('');
   let editingContent = $state('');
   let displayedContent = $state('');
-  let selectedSongId = $state('');
+  let selectedSongId = $state(''); // '' = Acordes (padrão)
   let songs = $state([]);
 
   let currentStepIndex = $state(-1);
   let totalChordSteps = $state(0);
+
+  // Flag de controle manual do tom
+  let isUserSetKey = $state(false);
 
   const isLyricsOnly = $derived(currentKey === 'L');
   const showNav = $derived(!isEditing && activeTab === 'song' && selectedSongId !== '' && totalChordSteps > 0 && !isLyricsOnly);
@@ -59,7 +61,57 @@
   const currentSong = $derived(songs.find((s) => s.id === selectedSongId));
   const quickReturnSongTitle = $derived(currentSong ? currentSong.title : '');
 
+  // --- RESET COMPLETO PARA O PADRÃO ---
+  function resetAppToDefault() {
+    // 1. Repertório e Visores
+    selectedSongId = '';
+    displayedContent = '';
+    editingContent = '';
+    isEditing = false;
+    songTitle = '';
+    currentStepIndex = -1;
+    totalChordSteps = 0;
+    activeTab = 'song';
+
+    // 2. Tom e Grade de Acordes
+    currentKey = 'C';
+    isUserSetKey = false;
+    activeSlot = null;
+    currentPlayingChord = 'C';
+
+    // 3. Andamento (BPM)
+    currentBpm = 90;
+    rhythmEngine.setBpm(90);
+
+    // 4. Ritmo e Instrumento
+    selectedRhythm = 'Sem ritmo';
+    rhythmEngine.setRhythm('Sem ritmo');
+    currentInstrument = 'orgao';
+    rhythmEngine.setInstrument('orgao');
+
+    // 5. Execução e Áudio
+    isPlaying = false;
+    musicPhase = 1;
+    rhythmEngine.setPhase(1);
+    sampleEngine.stopAll();
+    rhythmEngine.stop();
+
+    // 6. Modais e Gaveta
+    isMenuOpen = false;
+    isExportModalOpen = false;
+    isImportModalOpen = false;
+    isAboutModalOpen = false;
+
+    // 7. Limpeza de busca persistida
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('orgao_search_query');
+    }
+  }
+
   onMount(async () => {
+    // Garante que tudo inicie no padrão
+    resetAppToDefault();
+
     sampleEngine.preloadAll();
 
     await rhythmEngine.init();
@@ -70,7 +122,6 @@
       setTimeout(() => { isBlinking = false; }, 100);
     };
 
-    // Desbloqueia áudio e ativa o WakeLock ao primeiro toque na tela
     const unlockAudioAndWakeLock = () => {
       sampleEngine.init();
       wakeLockController.request();
@@ -78,7 +129,6 @@
     };
     window.addEventListener('pointerdown', unlockAudioAndWakeLock);
 
-    // Atalhos de teclado para músicos (Espaço = Play/Stop, Setas = Anterior/Próximo)
     function handleKeydown(e) {
       if (isEditing) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
@@ -97,22 +147,31 @@
 
     window.addEventListener('keydown', handleKeydown);
 
+    // Carrega o banco do localStorage
     songs = DatabaseManager.getSongs();
-    if (songs.length > 0) {
-      loadSong(songs[0].id);
-    }
 
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 
   function loadSong(id) {
-    const song = songs.find((s) => s.id === id);
-    if (!song) {
+    if (!id) {
+      // REGRA: Ao selecionar "Acordes", reseta o Tom para 'C' e volta ao padrão livre
       selectedSongId = '';
       displayedContent = '';
       currentStepIndex = -1;
+      currentKey = 'C';
+      isUserSetKey = false;
+      activeSlot = null;
+      currentPlayingChord = 'C';
+
+      if (isPlaying) {
+        playChordSound('C');
+      }
       return;
     }
+
+    const song = songs.find((s) => s.id === id);
+    if (!song) return;
 
     selectedSongId = song.id;
     activeTab = 'song';
@@ -132,6 +191,7 @@
 
     displayedContent = TextFormatter.prepareContent(song.content);
     currentStepIndex = 0;
+    isUserSetKey = false;
   }
 
   function toggleTheme() {
@@ -140,22 +200,31 @@
   }
 
   function handleKeyChange(newVal) {
-    const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+    isUserSetKey = true;
+    const baseKeys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
     if (typeof newVal === 'number') {
       if (currentKey === 'L') return;
-      const idx = keys.indexOf(currentKey);
+
+      const isMinor = currentKey.endsWith('m');
+      const rootOnly = isMinor ? currentKey.slice(0, -1) : currentKey;
+      const idx = MusicTheory.getNoteIndex(rootOnly);
+
       if (idx !== -1) {
         const nextIdx = (idx + newVal + 12) % 12;
-        currentKey = keys[nextIdx];
+        const nextNote = baseKeys[nextIdx];
+        currentKey = isMinor ? `${nextNote}m` : nextNote;
         transposeDisplayedSong(newVal);
       }
     } else {
       if (newVal === 'L') {
         currentKey = 'L';
       } else {
-        const oldIdx = keys.indexOf(currentKey);
-        const newIdx = keys.indexOf(newVal);
+        const oldRoot = currentKey.replace('m', '');
+        const newRoot = newVal.replace('m', '');
+        const oldIdx = MusicTheory.getNoteIndex(oldRoot);
+        const newIdx = MusicTheory.getNoteIndex(newRoot);
+
         if (oldIdx !== -1 && newIdx !== -1) {
           let delta = newIdx - oldIdx;
           if (delta > 6) delta -= 12;
@@ -207,7 +276,6 @@
     }
   }
 
-  // --- NAVEGAÇÃO DE ACORDES ---
   function handleNextChord() {
     if (totalChordSteps === 0) return;
     currentStepIndex = (currentStepIndex + 1) % totalChordSteps;
@@ -262,30 +330,32 @@
     playChordSound(chordName);
   }
 
-  // --- CRUD REPERTÓRIO ---
+  // --- AÇÕES CRUD ---
   function handleAddSong() {
     activeTab = 'song';
     isEditing = true;
+    isUserSetKey = false;
     songTitle = '';
     editingContent = '';
+    currentKey = 'C';
   }
 
   function handleEditSong() {
-    if (!selectedSongId) {
-      alert('Selecione uma música para editar.');
-      return;
-    }
+    if (!selectedSongId) return;
     const song = songs.find((s) => s.id === selectedSongId);
     if (!song) return;
 
     activeTab = 'song';
     isEditing = true;
+    isUserSetKey = false;
     songTitle = song.title;
     editingContent = song.content;
+    currentKey = song.key || 'C';
   }
 
   function handleCancelEdit() {
     isEditing = false;
+    isUserSetKey = false;
     songTitle = '';
     editingContent = '';
   }
@@ -297,16 +367,18 @@
       return;
     }
 
-    // Detecção automática de tom se for nova música ou se não tiver tom definido
-    let autoKey = currentKey;
-    if (currentKey === 'C' || !currentKey) {
-      autoKey = MusicTheory.detectKeyFromChords(editingContent);
+    let keyToSave = currentKey;
+
+    if (!isUserSetKey) {
+      const detectedKey = MusicTheory.detectKeyFromChords(editingContent);
+      keyToSave = detectedKey || 'C';
+      currentKey = keyToSave;
     }
 
     const payload = {
       title,
       content: editingContent,
-      key: autoKey,
+      key: keyToSave,
       bpm: currentBpm,
       instrument: currentInstrument,
       style: selectedRhythm
@@ -321,24 +393,17 @@
       songs = DatabaseManager.getSongs();
       selectedSongId = created.id;
       displayedContent = TextFormatter.prepareContent(created.content);
-      currentKey = autoKey;
     }
 
     currentStepIndex = 0;
     isEditing = false;
+    isUserSetKey = false;
   }
 
   function handleDeleteSong() {
     if (!selectedSongId) return;
-    const song = songs.find((s) => s.id === selectedSongId);
-    if (!song) return;
-
-    if (confirm(`Deseja excluir a música "${song.title}"?`)) {
-      songs = DatabaseManager.deleteSong(selectedSongId);
-      selectedSongId = '';
-      displayedContent = '';
-      currentStepIndex = -1;
-    }
+    songs = DatabaseManager.deleteSong(selectedSongId);
+    loadSong(''); // Volta para Acordes com Tom em 'C'
   }
 
   function handleImportComplete(newSongsList) {
@@ -352,9 +417,7 @@
     if (confirm('⚠️ ATENÇÃO: Isso apagará TODO o repertório salvo e restaurará os dados de fábrica. Deseja continuar?')) {
       localStorage.clear();
       songs = DatabaseManager.getSongs();
-      if (songs.length > 0) {
-        loadSong(songs[0].id);
-      }
+      resetAppToDefault();
       alert('Aplicativo restaurado com sucesso.');
     }
   }
@@ -414,7 +477,6 @@
     onNextChord={handleNextChord}
   />
 
-  <!-- Painel de Acordes Livres: ativo quando não há música selecionada e em modo song -->
   {#if !selectedSongId && activeTab === 'song'}
     <ChordPanel 
       selectedKey={currentKey}

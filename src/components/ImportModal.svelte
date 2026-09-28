@@ -93,7 +93,7 @@
   <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
     <div class="modal-header">
       <div class="title-wrap">
-        <Upload size={20} class="text-teal" />
+        <Upload size={20} class="var(--app-teal)" />
         <h4 id="import-title">Importar Repertório</h4>
       </div>
       <button class="btn-close" onclick={onClose} aria-label="Fechar"><X size={20} /></button>
@@ -109,7 +109,7 @@
           onchange={handleFileChange} 
           class="visually-hidden" 
         />
-        <FileUp size={28} class="text-teal" />
+        <FileUp size={28} class="var(--app-teal)" />
         <div class="upload-labels">
           <strong>{fileName ? fileName : 'Clique para escolher o arquivo JSON'}</strong>
           <small>Formato .json exportado pelo Órgão Web</small>
@@ -124,9 +124,9 @@
       {#if analyzedSongs.length > 0}
         <div class="select-all-row" onclick={toggleSelectAll} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && toggleSelectAll()}>
           {#if isAllSelected}
-            <CheckSquare size={18} class="text-teal" />
+            <CheckSquare size={18} class="var(--app-teal)" />
           {:else}
-            <Square size={18} color="#888" />
+            <Square size={18} class="var(--app-text)" />
           {/if}
           <span>Selecionar Todas ({selectedIndices.size}/{analyzedSongs.length})</span>
         </div>
@@ -217,8 +217,6 @@
     font-size: 17px;
     font-weight: bold;
   }
-
-  .text-teal { color: var(--app-teal); }
 
   .btn-close {
     background: none;
