@@ -1,12 +1,7 @@
 <script>
-  /**
-   * src/components/MainDisplay.svelte
-   * Display com alternância entre:
-   * - Modo Música (Cifras e Letra)
-   * - Liturgia Diária (Iframe com dark-mode inteligente)
-   * - Santa Missa & Orações (Texto formatado offline)
-   */
   import { ArrowLeft } from 'lucide-svelte';
+  import MissaView from './MissaView.svelte';
+  import OracoesView from './OracoesView.svelte';
 
   let { 
     content = '', 
@@ -116,7 +111,7 @@
 </script>
 
 <div class="display-wrapper">
-  <!-- Barra de Retorno Rápido como <button> acessível -->
+  <!-- Barra de Retorno Rápido persistente -->
   {#if activeTab !== 'song' && quickReturnSongTitle}
     <button type="button" class="quick-return-bar" onclick={onReturnToSong}>
       <ArrowLeft size={16} />
@@ -125,7 +120,7 @@
   {/if}
 
   {#if activeTab === 'liturgia'}
-    <!-- Visualizador Oficial da CNBB com Inversão no Tema Escuro -->
+    <!-- Visualizador Oficial da CNBB -->
     <iframe 
       src="https://liturgiadiaria.edicoescnbb.com.br/" 
       class="content-iframe" 
@@ -133,50 +128,10 @@
     ></iframe>
 
   {:else if activeTab === 'missa'}
-    <div class="text-document-view">
-      <h3>ORDINÁRIO DA SANTA MISSA</h3>
-      <p class="section-title">RITOS INICIAIS</p>
-      <p><strong>P:</strong> Em nome do Pai e do Filho e do Espírito Santo.<br>
-      <span class="resp"><strong>T:</strong> Amém.</span></p>
-      <p><strong>P:</strong> A graça de nosso Senhor Jesus Cristo, o amor do Pai e a comunhão do Espírito Santo estejam convosco.<br>
-      <span class="resp"><strong>T:</strong> Bendito seja Deus que nos reuniu no amor de Cristo.</span></p>
-      <hr />
-      <p class="section-title">ATO PENITENCIAL</p>
-      <p><strong>P:</strong> O Senhor tenha compaixão de nós.<br>
-      <span class="resp"><strong>T:</strong> Perdoai os nossos pecados e nos conduza à vida eterna. Amém.</span></p>
-      <p><strong>P:</strong> Senhor, tende piedade de nós.<br>
-      <span class="resp"><strong>T:</strong> Senhor, tende piedade de nós.</span><br>
-      <strong>P:</strong> Cristo, tende piedade de nós.<br>
-      <span class="resp"><strong>T:</strong> Cristo, tende piedade de nós.</span><br>
-      <strong>P:</strong> Senhor, tende piedade de nós.<br>
-      <span class="resp"><strong>T:</strong> Senhor, tende piedade de nós.</span></p>
-      <hr />
-      <p class="section-title">LITURGIA EUCARÍSTICA</p>
-      <p><strong>P:</strong> Orai, irmãos e irmãs, para que o meu e vosso sacrifício seja aceito por Deus Pai todo-poderoso.<br>
-      <span class="resp"><strong>T:</strong> Receba o Senhor por tuas mãos este sacrifício, para glória do seu nome, para nosso bem e de toda a santa Igreja.</span></p>
-      <p><strong>P:</strong> O Senhor esteja convosco.<br>
-      <span class="resp"><strong>T:</strong> Ele está no meio de nós.</span><br>
-      <strong>P:</strong> Corações ao alto.<br>
-      <span class="resp"><strong>T:</strong> O nosso coração está em Deus.</span><br>
-      <strong>P:</strong> Demos graças ao Senhor, nosso Deus.<br>
-      <span class="resp"><strong>T:</strong> É nosso dever e nossa salvação.</span></p>
-    </div>
+    <MissaView />
 
   {:else if activeTab === 'oracoes'}
-    <div class="text-document-view">
-      <h3>ORAÇÕES COMUNS</h3>
-      <p class="section-title">PAI NOSSO</p>
-      <p>Pai nosso, que estais nos céus, santificado seja o vosso nome; venha a nós o vosso reino, seja feita a vossa vontade assim na terra como no céu. O pão nosso de cada dia nos dai hoje; perdoai-nos as nossas ofensas assim como nós perdoamos a quem nos tem ofendido; e não nos deixeis cair em tentação, mas livrai-nos do mal. Amém.</p>
-      <hr />
-      <p class="section-title">AVE MARIA</p>
-      <p>Ave Maria, cheia de graça, o Senhor é convosco, bendita sois vós entre as mulheres e bendito é o fruto do vosso ventre, Jesus. Santa Maria, Mãe de Deus, rogai por nós pecadores, agora e na hora de nossa morte. Amém.</p>
-      <hr />
-      <p class="section-title">GLÓRIA AO PAI</p>
-      <p>Glória ao Pai, e ao Filho e ao Espírito Santo. Como era no princípio, agora e sempre. Amém.</p>
-      <hr />
-      <p class="section-title">SALVE RAINHA</p>
-      <p>Salve, Rainha, Mãe de misericórdia, vida, doçura e esperança nossa, salve! A vós bradamos os degredados filhos de Eva. A vós suspiramos, gemendo e chorando neste vale de lágrimas. Eia, pois, advogada nossa, esses vossos olhos misericordiosos a nós volvei, e depois deste desterro mostrai-nos Jesus, bendito fruto do vosso ventre, ó clemente, ó piedosa, ó doce sempre Virgem Maria. Rogai por nós, Santa Mãe de Deus, para que sejamos dignos das promessas de Cristo. Amém.</p>
-    </div>
+    <OracoesView />
 
   {:else if isEditing}
     <div 
@@ -216,14 +171,56 @@
 </div>
 
 <style>
-  /* ... mantenha os estilos anteriores e certifique-se que .display-container tenha o espaçamento: */
+  .display-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .quick-return-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--app-teal);
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 6px;
+    width: 100%;
+    transition: filter 0.15s ease;
+    user-select: none;
+  }
+
+  .quick-return-bar:hover {
+    filter: brightness(1.1);
+  }
+
+  .content-iframe {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--app-border-display);
+    border-radius: 6px;
+    background: #ffffff;
+  }
+
+  :global([data-theme="dark"]) .content-iframe {
+    filter: invert(0.9) hue-rotate(180deg);
+  }
+
   .display-container {
     flex: 1;
     background-color: var(--app-bg-display);
     border: 1px solid var(--app-border-display);
     border-radius: 6px;
     padding: 14px 16px;
-    padding-bottom: 140px; /* Garante que a cápsula flutuante não cubra o fim da letra */
+    padding-bottom: 140px;
     overflow-y: auto;
     font-family: 'Consolas', 'Courier New', monospace;
     font-size: 14px;
@@ -234,5 +231,45 @@
     box-sizing: border-box;
     scrollbar-width: thin;
     transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .display-container.lyrics-only {
+    font-family: 'Roboto', system-ui, sans-serif;
+    font-size: 16px;
+  }
+
+  .display-container.lyrics-only :global(b),
+  .display-container.lyrics-only :global(strong) {
+    display: none !important;
+  }
+
+  :global(.chord-highlight) {
+    background-color: #ffeb3b !important;
+    color: #000000 !important;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+
+  :global([data-theme="dark"] .chord-highlight) {
+    background-color: #d4a017 !important;
+    color: #ffffff !important;
+  }
+
+  .empty-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .empty-state p {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+  }
+
+  .empty-state small {
+    color: #888;
   }
 </style>

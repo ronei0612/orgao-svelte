@@ -36,9 +36,8 @@
   let isDropdownOpen = $state(false);
 
   const STORAGE_KEY = 'orgao_search_query';
-  let savedSearchText = $state(
-    (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) || ''
-  );
+  // Inicia sempre vazio por padrão no carregamento da página
+  let savedSearchText = $state('');
 
   let searchInputEl = $state(null);
   let showActions = $state(false);
@@ -130,7 +129,7 @@
   }
 
   function handleSelectAcordes() {
-    onSongChange('');
+    onSongChange(''); // Aciona o reset do tom e volta ao modo Acordes
     currentMode = 1;
     isDropdownOpen = false;
   }
@@ -384,7 +383,6 @@
   </div>
 </header>
 
-<!-- Modal ao Salvar: Sim / Não -->
 <ConfirmModal 
   isOpen={isConfirmSaveOpen}
   title="Salvar Música"
@@ -396,7 +394,6 @@
   onCancel={() => (isConfirmSaveOpen = false)}
 />
 
-<!-- Modal ao Cancelar: Sim / Não -->
 <ConfirmModal 
   isOpen={isConfirmCancelOpen}
   title="Cancelar Edição"
@@ -408,7 +405,6 @@
   onCancel={() => (isConfirmCancelOpen = false)}
 />
 
-<!-- Modal ao Excluir: Sim / Não -->
 <ConfirmModal 
   isOpen={isConfirmDeleteOpen}
   title="Excluir Música"

@@ -73,9 +73,9 @@ describe('Tom', () => {
     expect(handleKeyChange).toHaveBeenCalledWith('G');
   });
 
-  it('deve conter a opção "L" (Letra) no dropdown de tom', () => {
+  it('deve conter a opção "L" (Letra) no dropdown de tom quando houver música selecionada', () => {
     const { getByLabelText } = render(Header, {
-      props: { selectedKey: 'C' }
+      props: { selectedKey: 'C', selectedSongId: 'song-1' }
     });
 
     const selectTom = getByLabelText('Tom');

@@ -61,7 +61,57 @@
   const currentSong = $derived(songs.find((s) => s.id === selectedSongId));
   const quickReturnSongTitle = $derived(currentSong ? currentSong.title : '');
 
+  // --- RESET COMPLETO PARA O PADRÃO ---
+  function resetAppToDefault() {
+    // 1. Repertório e Visores
+    selectedSongId = '';
+    displayedContent = '';
+    editingContent = '';
+    isEditing = false;
+    songTitle = '';
+    currentStepIndex = -1;
+    totalChordSteps = 0;
+    activeTab = 'song';
+
+    // 2. Tom e Grade de Acordes
+    currentKey = 'C';
+    isUserSetKey = false;
+    activeSlot = null;
+    currentPlayingChord = 'C';
+
+    // 3. Andamento (BPM)
+    currentBpm = 90;
+    rhythmEngine.setBpm(90);
+
+    // 4. Ritmo e Instrumento
+    selectedRhythm = 'Sem ritmo';
+    rhythmEngine.setRhythm('Sem ritmo');
+    currentInstrument = 'orgao';
+    rhythmEngine.setInstrument('orgao');
+
+    // 5. Execução e Áudio
+    isPlaying = false;
+    musicPhase = 1;
+    rhythmEngine.setPhase(1);
+    sampleEngine.stopAll();
+    rhythmEngine.stop();
+
+    // 6. Modais e Gaveta
+    isMenuOpen = false;
+    isExportModalOpen = false;
+    isImportModalOpen = false;
+    isAboutModalOpen = false;
+
+    // 7. Limpeza de busca persistida
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('orgao_search_query');
+    }
+  }
+
   onMount(async () => {
+    // Garante que tudo inicie no padrão
+    resetAppToDefault();
+
     sampleEngine.preloadAll();
 
     await rhythmEngine.init();
@@ -100,22 +150,23 @@
     // Carrega o banco do localStorage
     songs = DatabaseManager.getSongs();
 
-    // REGRA: Ao carregar a página, inicia SEMPRE em "Acordes" por padrão
-    selectedSongId = '';
-    displayedContent = '';
-    currentKey = 'C';
-    currentStepIndex = -1;
-
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 
   function loadSong(id) {
     if (!id) {
-      // Volta para o modo 'Acordes'
+      // REGRA: Ao selecionar "Acordes", reseta o Tom para 'C' e volta ao padrão livre
       selectedSongId = '';
       displayedContent = '';
       currentStepIndex = -1;
-      if (currentKey === 'L') currentKey = 'C';
+      currentKey = 'C';
+      isUserSetKey = false;
+      activeSlot = null;
+      currentPlayingChord = 'C';
+
+      if (isPlaying) {
+        playChordSound('C');
+      }
       return;
     }
 
@@ -318,7 +369,6 @@
 
     let keyToSave = currentKey;
 
-    // Se o usuário não alterou manualmente, detecta pelo texto
     if (!isUserSetKey) {
       const detectedKey = MusicTheory.detectKeyFromChords(editingContent);
       keyToSave = detectedKey || 'C';
@@ -353,10 +403,7 @@
   function handleDeleteSong() {
     if (!selectedSongId) return;
     songs = DatabaseManager.deleteSong(selectedSongId);
-    selectedSongId = '';
-    displayedContent = '';
-    currentStepIndex = -1;
-    currentKey = 'C';
+    loadSong(''); // Volta para Acordes com Tom em 'C'
   }
 
   function handleImportComplete(newSongsList) {
@@ -370,9 +417,7 @@
     if (confirm('⚠️ ATENÇÃO: Isso apagará TODO o repertório salvo e restaurará os dados de fábrica. Deseja continuar?')) {
       localStorage.clear();
       songs = DatabaseManager.getSongs();
-      selectedSongId = '';
-      displayedContent = '';
-      currentKey = 'C';
+      resetAppToDefault();
       alert('Aplicativo restaurado com sucesso.');
     }
   }
@@ -432,7 +477,6 @@
     onNextChord={handleNextChord}
   />
 
-  <!-- Grade de 11 botões exibida quando estiver no modo 'Acordes' -->
   {#if !selectedSongId && activeTab === 'song'}
     <ChordPanel 
       selectedKey={currentKey}
