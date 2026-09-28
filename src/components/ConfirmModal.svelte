@@ -28,9 +28,9 @@
     <div class="modal-header">
       <div class="title-wrap">
         {#if type === 'danger'}
-          <AlertTriangle size={20} class="text-danger" />
+          <AlertTriangle size={20} color="#dc3545" />
         {:else}
-          <HelpCircle size={20} class="text-primary" />
+          <HelpCircle size={20} color="var(--app-teal)" />
         {/if}
         <h4>{title}</h4>
       </div>
@@ -106,9 +106,6 @@
     font-size: 16px;
     font-weight: bold;
   }
-
-  .text-danger { color: #dc3545; }
-  .text-primary { color: var(--app-teal); }
 
   .btn-close {
     background: none;

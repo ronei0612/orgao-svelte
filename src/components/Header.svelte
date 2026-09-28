@@ -27,20 +27,14 @@
   const isMinor = $derived(selectedKey && selectedKey.endsWith('m') && selectedKey !== 'L');
   const baseKeys = $derived(isMinor ? majorKeys.map(k => `${k}m`) : majorKeys);
 
-  // "Letra" só aparece no topo SE houver música selecionada
   const availableKeys = $derived(
     selectedSongId ? ['L', ...baseKeys] : baseKeys
   );
 
   // --- MÁQUINA DE 4 ESTADOS DO SELECT ---
-  // 1 = Resetado (início/padrão)
-  // 2 = Em branco (editável)
-  // 3 = Com texto (editável)
-  // 4 = Item selecionado
   let currentMode = $state(1);
   let isDropdownOpen = $state(false);
 
-  // Persistência estrita dos caracteres digitados no modo editável
   const STORAGE_KEY = 'orgao_search_query';
   let savedSearchText = $state(
     (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) || ''
@@ -50,15 +44,14 @@
   let showActions = $state(false);
 
   // Modais de confirmação
-  let isConfirmEditOpen = $state(false);
+  let isConfirmSaveOpen = $state(false);
+  let isConfirmCancelOpen = $state(false);
   let isConfirmDeleteOpen = $state(false);
 
-  // Ordenação alfabética case-insensitive
   const sortedSongs = $derived(
     [...songs].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' }))
   );
 
-  // Filtro baseado nos caracteres guardados
   const filteredSongs = $derived.by(() => {
     if (!savedSearchText.trim()) return sortedSongs;
     const q = savedSearchText.toLowerCase().trim();
@@ -67,12 +60,11 @@
 
   const selectedSong = $derived(songs.find(s => s.id === selectedSongId));
 
-  // Determina o texto exibido no input conforme os 4 estados
   const displayValue = $derived.by(() => {
-    if (currentMode === 1) return ''; // Modo 1: Resetado (mostra placeholder)
-    if (currentMode === 2) return ''; // Modo 2: Em branco (editável)
-    if (currentMode === 3) return savedSearchText; // Modo 3: Com texto guardado
-    if (currentMode === 4) return selectedSong ? selectedSong.title : ''; // Modo 4: Item selecionado
+    if (currentMode === 1) return '';
+    if (currentMode === 2) return '';
+    if (currentMode === 3) return savedSearchText;
+    if (currentMode === 4) return selectedSong ? selectedSong.title : '';
     return '';
   });
 
@@ -82,14 +74,13 @@
     return 'Escolha a Música...';
   });
 
-  // Fecha dropdown e retorna aos estados de repouso (Modo 4 se tem música, Modo 1 se não tem)
   function handleWindowClick(e) {
     if (!e.target.closest('.song-search-wrapper')) {
       isDropdownOpen = false;
       if (selectedSongId) {
-        currentMode = 4; // Volta a exibir o título da música
+        currentMode = 4;
       } else {
-        currentMode = 1; // Volta para o resetado
+        currentMode = 1;
       }
     }
     if (!e.target.closest('.right-cluster')) {
@@ -97,19 +88,17 @@
     }
   }
 
-  // AO CLICAR NO SELECT: entra no modo editável e CARREGA O TEXTO
   function handleInputClick() {
     showActions = false;
     isDropdownOpen = true;
 
     if (savedSearchText.trim() !== '') {
-      currentMode = 3; // Carrega o texto guardado (Modo 3)
+      currentMode = 3;
     } else {
-      currentMode = 2; // Fica em branco para digitar (Modo 2)
+      currentMode = 2;
     }
   }
 
-  // AO DIGITAR: atualiza e guarda os caracteres
   function handleInput(e) {
     savedSearchText = e.target.value;
     if (typeof localStorage !== 'undefined') {
@@ -120,14 +109,13 @@
     showActions = false;
   }
 
-  // AO CLICAR NO 'X': limpa o texto e vai para o MODO 2 (em branco editável)
   function handleClearSearch(e) {
     e.stopPropagation();
     savedSearchText = '';
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(STORAGE_KEY);
     }
-    currentMode = 2; // Fica em branco editável
+    currentMode = 2;
     isDropdownOpen = true;
     if (searchInputEl) {
       searchInputEl.value = '';
@@ -135,17 +123,15 @@
     }
   }
 
-  // AO SELECIONAR UM ITEM: vai para o MODO 4 (Item selecionado)
   function handleSelectSong(id) {
     onSongChange(id);
-    currentMode = 4; // Modo 4: Item selecionado (mostra título da música + seta v)
+    currentMode = 4;
     isDropdownOpen = false;
-    // Note que savedSearchText NÃO é apagado! Permanece guardado na memória.
   }
 
   function handleSelectAcordes() {
     onSongChange('');
-    currentMode = 1; // Modo 1: Resetado
+    currentMode = 1;
     isDropdownOpen = false;
   }
 
@@ -247,16 +233,33 @@
           value={songTitle}
           oninput={(e) => onTitleChange?.(e.target.value)}
           onkeydown={(e) => {
-            if (e.key === 'Enter') onSaveSong?.();
-            if (e.key === 'Escape') onCancelEdit?.();
+            if (e.key === 'Enter') isConfirmSaveOpen = true;
+            if (e.key === 'Escape') isConfirmCancelOpen = true;
           }}
           aria-label="Título da Música"
         />
-        <button type="button" class="btn-action btn-save" onclick={onSaveSong} title="Salvar"><Save size={18} /></button>
-        <button type="button" class="btn-action btn-cancel" onclick={onCancelEdit} title="Cancelar"><X size={18} /></button>
+        <button 
+          type="button" 
+          class="btn-action btn-save" 
+          onclick={() => (isConfirmSaveOpen = true)} 
+          title="Salvar"
+          aria-label="Salvar"
+        >
+          <Save size={18} />
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-action btn-cancel" 
+          onclick={() => (isConfirmCancelOpen = true)} 
+          title="Cancelar"
+          aria-label="Cancelar"
+        >
+          <X size={18} />
+        </button>
       </div>
     {:else}
-      <!-- Seletor com Máquina de 4 Estados -->
+      <!-- Seletor de Músicas -->
       <div class="input-group song-group">
         <div class="song-search-wrapper">
           <input 
@@ -270,7 +273,6 @@
             aria-label="Pesquisar Música"
           />
 
-          <!-- ÍCONE: 'X' apenas no Modo 3 (com texto). Em todos os outros modos exibe a seta 'v' -->
           {#if currentMode === 3 && savedSearchText !== ''}
             <button 
               type="button" 
@@ -282,12 +284,16 @@
               <X size={16} />
             </button>
           {:else}
-            <div class="search-arrow-wrap" onclick={toggleDropdown} role="button" tabindex="0">
+            <button 
+              type="button" 
+              class="search-arrow-wrap" 
+              onclick={toggleDropdown} 
+              aria-label="Abrir opções de música"
+            >
               <ChevronDown size={15} />
-            </div>
+            </button>
           {/if}
 
-          <!-- Menu Suspenso -->
           {#if isDropdownOpen}
             <div class="search-dropdown-menu">
               <div 
@@ -323,7 +329,6 @@
           {/if}
         </div>
 
-        <!-- Ações (+ / Editar / Excluir) -->
         {#if !showActions}
           <button 
             type="button" 
@@ -347,18 +352,20 @@
           >
             <FilePlus size={17} />
           </button>
+
           <button 
             type="button" 
             class="btn-action btn-edit" 
             onclick={() => { 
               showActions = false; 
-              if (selectedSongId) isConfirmEditOpen = true;
+              if (selectedSongId) onEditSong?.();
               else alert('Selecione uma música para editar.');
             }} 
             title="Editar Música"
           >
             <Edit size={17} />
           </button>
+
           <button 
             type="button" 
             class="btn-action btn-delete" 
@@ -377,21 +384,37 @@
   </div>
 </header>
 
+<!-- Modal ao Salvar: Sim / Não -->
 <ConfirmModal 
-  isOpen={isConfirmEditOpen}
-  title="Editar Música"
-  message={`Deseja entrar no modo de edição para a música "${selectedSong?.title}"?`}
-  confirmText="Editar"
+  isOpen={isConfirmSaveOpen}
+  title="Salvar Música"
+  message="Deseja salvar as alterações feitas nesta música?"
+  confirmText="Sim"
+  cancelText="Não"
   type="primary"
-  onConfirm={() => { isConfirmEditOpen = false; onEditSong?.(); }}
-  onCancel={() => (isConfirmEditOpen = false)}
+  onConfirm={() => { isConfirmSaveOpen = false; onSaveSong?.(); }}
+  onCancel={() => (isConfirmSaveOpen = false)}
 />
 
+<!-- Modal ao Cancelar: Sim / Não -->
+<ConfirmModal 
+  isOpen={isConfirmCancelOpen}
+  title="Cancelar Edição"
+  message="Deseja realmente cancelar? Todas as alterações não salvas serão perdidas."
+  confirmText="Sim"
+  cancelText="Não"
+  type="danger"
+  onConfirm={() => { isConfirmCancelOpen = false; onCancelEdit?.(); }}
+  onCancel={() => (isConfirmCancelOpen = false)}
+/>
+
+<!-- Modal ao Excluir: Sim / Não -->
 <ConfirmModal 
   isOpen={isConfirmDeleteOpen}
   title="Excluir Música"
   message={`Tem certeza que deseja excluir "${selectedSong?.title}"? Esta ação não pode ser desfeita.`}
-  confirmText="Excluir"
+  confirmText="Sim"
+  cancelText="Não"
   type="danger"
   onConfirm={() => { isConfirmDeleteOpen = false; onDeleteSong?.(); }}
   onCancel={() => (isConfirmDeleteOpen = false)}
@@ -578,6 +601,10 @@
     right: 8px;
     display: flex;
     align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0;
     cursor: pointer;
     color: #6c757d;
   }
@@ -613,7 +640,7 @@
     z-index: 1000;
   }
 
-  [data-theme="dark"] .search-dropdown-menu {
+  :global([data-theme="dark"]) .search-dropdown-menu {
     background: #242424;
     border-color: #444;
   }
@@ -648,7 +675,7 @@
     font-weight: bold;
   }
 
-  [data-theme="dark"] .dropdown-item.selected {
+  :global([data-theme="dark"]) .dropdown-item.selected {
     background: #383838;
   }
 
@@ -671,7 +698,7 @@
     font-weight: bold;
   }
 
-  [data-theme="dark"] :global(.highlight-match) {
+  :global([data-theme="dark"] .highlight-match) {
     background-color: #d4a017 !important;
     color: #ffffff !important;
   }

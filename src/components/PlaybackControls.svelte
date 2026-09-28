@@ -212,7 +212,7 @@
 </div>
 
 <style>
-  /* Painel padrão quando em modo livre (sem música selecionada) */
+  /* Painel padrão quando em modo livre */
   .playback-panel {
     display: flex;
     align-items: center;
@@ -246,7 +246,7 @@
     box-shadow: 0 14px 34px var(--app-shadow-floating);
   }
 
-  /* Botões direcionais de cifras (|◀ e ▶|) */
+  /* Botões direcionais de cifras */
   .nav-btn {
     background: none;
     border: none;
@@ -274,11 +274,11 @@
     transform: scale(0.92);
   }
 
-  [data-theme="dark"] .nav-btn {
+  :global([data-theme="dark"]) .nav-btn {
     color: #ced4da;
   }
 
-  /* Botão Play circular com aura luminosa azul idêntica ao print */
+  /* Botão Play circular com aura luminosa azul */
   .btn-circle {
     border-radius: 50%;
     border: none;
